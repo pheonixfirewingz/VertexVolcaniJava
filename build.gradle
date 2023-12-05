@@ -1,5 +1,6 @@
 import org.gradle.internal.os.OperatingSystem
 plugins {
+    id 'java'
     id 'java-library'
     id 'maven-publish'
 }
@@ -69,9 +70,6 @@ dependencies {
     implementation "org.joml:joml:${jomlVersion}"
 }
 
-plugins {
-    id("maven-publish")
-}
 publishing {
     repositories {
         maven {

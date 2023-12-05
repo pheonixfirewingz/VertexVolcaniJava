@@ -80,9 +80,9 @@ publishing {
             from components.java
             artifact sourceJar
             pom {
-                name = "Demo"
-                description = "A demonstration of Maven POM customization"
-                url = "http://www.example.com/project"
+                name = "VertexVolcani"
+                description = "VertexVolcani Java is my interpretation of Mojangs Blaze3D but instead of OpenGL it's Vulkan"
+                url = "https://github.com/pheonixfirewingz/VertexVolcaniJava"
                 licenses {
                     license {
                         name = "GNU Lesser General Public License, Version 3.0"

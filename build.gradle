@@ -1,6 +1,7 @@
 import org.gradle.internal.os.OperatingSystem
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'maven-publish'
 }
 
 group = 'com.github.phoenixfirewingz'
@@ -66,4 +67,25 @@ dependencies {
     runtimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
     if (lwjglNatives == "natives-macos" || lwjglNatives == "natives-macos-arm64") runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
     implementation "org.joml:joml:${jomlVersion}"
+}
+
+plugins {
+    id("maven-publish")
+}
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/pheonixfirewingz/VertexVolcaniJava")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+            }
+        }
+    }
+    publications {
+        gpr(MavenPublication) {
+            from(components.java)
+        }
+    }
 }

@@ -1,14 +1,20 @@
 import org.gradle.internal.os.OperatingSystem
 plugins {
+    id 'java'
     id 'java-library'
     id 'maven-publish'
 }
 
-group = 'com.github.phoenixfirewingz'
-version = '1.0-ALPHA'
+group = 'com.github.vertexvolcani'
+version = 'ALPHA-1.0'
 
 repositories {
     mavenCentral()
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
 }
 
 var Log4jVersion = "2.22.0"
@@ -69,25 +75,32 @@ dependencies {
     implementation "org.joml:joml:${jomlVersion}"
 }
 
-task sourceJar(type: Jar) {
-    from sourceSets.main.allJava
-    archiveClassifier = "sources"
-}
-
 publishing {
     publications {
         VertexVolcani(MavenPublication) {
+            artifactId = 'vertexvolcani'
             from components.java
-            artifact sourceJar
             pom {
-                name = "VertexVolcani"
-                description = "VertexVolcani Java is my interpretation of Mojangs Blaze3D but instead of OpenGL it's Vulkan"
-                url = "https://github.com/pheonixfirewingz/VertexVolcaniJava"
+                name = 'VertexVolcani'
+                description = 'A concise description of my library'
+                url = 'https://github.com/pheonixfirewingz/VertexVolcaniJava'
                 licenses {
                     license {
-                        name = "GNU Lesser General Public License, Version 3.0"
-                        url = "https://www.gnu.org/licenses/lgpl-3.0.en.html#license-text"
+                        name = 'GNU Lesser General Public License, Version 3.0'
+                        url = 'https://www.gnu.org/licenses/lgpl-3.0.html'
                     }
+                }
+                developers {
+                    developer {
+                        id = 'lukes'
+                        name = 'Luke Shore'
+                        email = 'Luke.A.shore@outlook.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git:https://github.com/pheonixfirewingz/VertexVolcaniJava.git'
+                    developerConnection = 'scm:git:ssh:git@github.com:pheonixfirewingz/VertexVolcaniJava.git'
+                    url = 'https://github.com/pheonixfirewingz/VertexVolcaniJava'
                 }
             }
         }

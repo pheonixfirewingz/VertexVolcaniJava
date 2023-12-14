@@ -1,6 +1,6 @@
 package com.github.vertexvolcani.graphics.vulkan;
 
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nonnull;
 import org.lwjgl.PointerBuffer;
@@ -12,8 +12,8 @@ import static org.lwjgl.util.vma.Vma.vmaCreateAllocator;
 import static org.lwjgl.util.vma.Vma.vmaDestroyAllocator;
 import static org.lwjgl.vulkan.VK10.*;
 
-public class VmaAllocator extends CleanerObject {
-    private final long handle;
+public class VmaAllocator extends LibCleanable {
+    private final DeviceHandle handle;
     public VmaAllocator(@Nonnull Instance instance,@Nonnull Device device) {
         super();
         Log.print(Log.Severity.DEBUG,"Vulkan: creating vma allocator...");
@@ -31,21 +31,22 @@ public class VmaAllocator extends CleanerObject {
                 Log.print(Log.Severity.ERROR,"Vulkan: failed to create vma allocator");
                 throw new IllegalStateException("failed to create vma allocator");
             }
-            handle = pAllocator.get(0);
+            handle = new DeviceHandle(device,pAllocator.get(0));
         }
         Log.print(Log.Severity.DEBUG,"Vulkan: done creating vma allocator");
     }
 
     public long getVmaAllocator() {
-        return handle;
+        return handle.handle();
     }
 
     @Override
-    public void cleanup() {
-        if(handle == VK_NULL_HANDLE) {
-            return;
-        }
-        vmaDestroyAllocator(handle);
+    public final void free() {
+        vmaDestroyAllocator(handle.handle());
         Log.print(Log.Severity.DEBUG,"Vulkan: done freeing vma allocator");
+    }
+
+    public Device getDev() {
+        return handle.device();
     }
 }

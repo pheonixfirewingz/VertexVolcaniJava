@@ -1,7 +1,8 @@
 package com.github.vertexvolcani.graphics.vulkan;
 
-import com.github.vertexvolcani.Window;
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.graphics.vulkan.pipeline.Fence;
+import com.github.vertexvolcani.graphics.vulkan.pipeline.Semaphore;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
@@ -22,7 +23,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @version 1.0
  * @since 2023-12-05
  */
-public class SwapChain extends CleanerObject {
+public class SwapChain extends LibCleanable {
     /**
      * The Vulkan device associated with this swap chain.
      */
@@ -32,6 +33,7 @@ public class SwapChain extends CleanerObject {
      */
     private final Surface surface;
     private final SwapChainBuilder builder;
+    private final VmaAllocator allocator;
     /**
      * holds the window width locally
      */
@@ -42,15 +44,16 @@ public class SwapChain extends CleanerObject {
      */
     private long handle;
     private long[] swap_chain_images;
-    private long[] swap_chain_images_view;
+    private Image[] swap_chain_images_view;
 
-    public SwapChain(Device device_in, Surface surface_in, SwapChainBuilder builder_in, int colour_format_in, int colour_space_in) {
+    public SwapChain(Device device_in, Surface surface_in,VmaAllocator allocator_in, SwapChainBuilder builder_in) {
         super();
         device = device_in;
         surface = surface_in;
         builder = builder_in;
-        colour_format = colour_format_in;
-        colour_space = colour_space_in;
+        allocator = allocator_in;
+        colour_format = surface_in.getColourFormat();
+        colour_space = surface_in.getColourSpace();
         Log.print(Log.Severity.DEBUG, "Vulkan: creating Vulkan swap chain...");
         create(VK_NULL_HANDLE);
         Log.print(Log.Severity.DEBUG, "Vulkan: done creating Vulkan swap chain");
@@ -60,8 +63,8 @@ public class SwapChain extends CleanerObject {
         if (swap_chain_images_view == null)
             return;
         vkDestroySwapchainKHR(device.getDevice(), local_handle, null);
-        for (long imageView : swap_chain_images_view)
-            vkDestroyImageView(device.getDevice(), imageView, null);
+        for (var imageView : swap_chain_images_view)
+            imageView.free();
         swap_chain_images_view = null;
         swap_chain_images = null;
     }
@@ -123,19 +126,15 @@ public class SwapChain extends CleanerObject {
             }
 
             long[] images = new long[imageCount];
-            long[] imageViews = new long[imageCount];
-            LongBuffer pBufferView = stack.callocLong(1);
-            VkImageViewCreateInfo colorAttachmentView = VkImageViewCreateInfo.calloc(stack).sType$Default().format(colour_format)
-                    .viewType(VK_IMAGE_VIEW_TYPE_2D);
-            colorAttachmentView.subresourceRange().aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).levelCount(1).layerCount(1);
+            Image[] imageViews = new Image[imageCount];
+
+            Image.ImageInformation info = new Image.ImageInformation();
+            info.setFormat(colour_format);
+            VkImageSubresourceRange colorAttachmentView = VkImageSubresourceRange.calloc(stack)
+                    .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).levelCount(1).layerCount(1);
+            info.setSubResourceRange(colorAttachmentView);
             for (int i = 0; i < imageCount; i++) {
-                images[i] = pSwapChainImages.get(i);
-                colorAttachmentView.image(images[i]);
-                if (vkCreateImageView(device.getDevice(), colorAttachmentView, null, pBufferView) != VK_SUCCESS) {
-                    Log.print(Log.Severity.ERROR, "Vulkan: Failed to create image view");
-                    throw new IllegalStateException("Failed to create image view");
-                }
-                imageViews[i] = pBufferView.get(0);
+               imageViews[i] = new Image(allocator,info,pSwapChainImages.get(i));
             }
             swap_chain_images = images;
             swap_chain_images_view = imageViews;
@@ -155,7 +154,7 @@ public class SwapChain extends CleanerObject {
         return swap_chain_images;
     }
 
-    public long[] getImagesViews() {
+    public Image[] getImagesViews() {
         return swap_chain_images_view;
     }
 
@@ -166,9 +165,6 @@ public class SwapChain extends CleanerObject {
 
     @NativeType("VkResult")
     public int queuePresent(@Nonnull VkQueue queue, @Nonnull Semaphore semaphore, @NativeType("uint32_t const *") @Nonnull IntBuffer pImageIndex) {
-        if(Window.getWindow() == null) {
-            return 0;
-        }
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer buffer_swap = stack.callocLong(1);
             buffer_swap.put(0, handle);
@@ -179,7 +175,7 @@ public class SwapChain extends CleanerObject {
     }
 
     @Override
-    public void cleanup() {
+    public final void free() {
         device.deviceWaitIdle();
         destroy(handle);
         Log.print(Log.Severity.DEBUG, "Vulkan: done freeing swap chain");

@@ -1,8 +1,8 @@
 package com.github.vertexvolcani.graphics.vulkan.pipeline;
 
 import com.github.vertexvolcani.graphics.vulkan.Device;
-import com.github.vertexvolcani.graphics.vulkan.RenderPass;
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
@@ -27,15 +27,13 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
  * @version 1.0
  * @since 2023-12-03
  */
-public class Pipeline extends CleanerObject {
-    /**
-     * The Vulkan device associated with this pipeline.
-     */
-    private final Device device;
+public class Pipeline extends LibCleanable {
     /**
      * The handle to the Vulkan pipeline.
      */
-    private final long handle;
+    private final DeviceHandle handle;
+
+    private final PipelineLayout layout;
 
     /**
      * Constructs a new Pipeline object.
@@ -47,24 +45,23 @@ public class Pipeline extends CleanerObject {
      * @throws IllegalStateException If the creation of the Vulkan pipeline fails.
      */
     public Pipeline(@Nonnull Device device_in, @Nonnull PipelineBuilder builder, @Nullable PipelineCache cache, boolean compute) {
-        super();
-        device = device_in;
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer buffer = stack.callocLong(1);
             if (compute) {
                 VkComputePipelineCreateInfo.Buffer pCreateInfo = builder.buildComputePipeline(stack);
-                if (device.createComputePipelines(cache != null ? cache.getPipelineCache() : VK_NULL_HANDLE, pCreateInfo, buffer) != VK_SUCCESS) {
+                if (device_in.createComputePipelines(cache != null ? cache.getPipelineCache() : VK_NULL_HANDLE, pCreateInfo, buffer) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: failed to create compute pipeline");
                     throw new IllegalStateException("failed to create compute pipeline");
                 }
             } else {
                 VkGraphicsPipelineCreateInfo.Buffer pipelineCreateInfo = builder.buildGraphicsPipeline(stack);
-                if (device.createGraphicsPipelines(cache != null ? cache.getPipelineCache() : VK_NULL_HANDLE, pipelineCreateInfo, buffer) != VK_SUCCESS) {
+                if (device_in.createGraphicsPipelines(cache != null ? cache.getPipelineCache() : VK_NULL_HANDLE, pipelineCreateInfo, buffer) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: failed to create graphics pipeline");
                     throw new IllegalStateException("failed to create graphics pipeline");
                 }
             }
-            handle = buffer.get(0);
+            handle = new DeviceHandle(device_in,buffer.get(0));
+            layout = builder.layout;
         }
     }
 
@@ -74,24 +71,32 @@ public class Pipeline extends CleanerObject {
      * @return The handle of the Vulkan pipeline.
      */
     public long getPipeline() {
-        return handle;
+        return handle.handle();
+    }
+
+
+    /**
+     * Gets the Vulkan pipeline layout.
+     *
+     * @return The Vulkan pipeline layout.
+     */
+    public PipelineLayout getLayout() {
+        return layout;
     }
 
     /**
      * Cleans up and destroys the Vulkan pipeline.
      */
     @Override
-    public void cleanup() {
-        if (handle == VK_NULL_HANDLE) {
-            return;
-        }
-        device.destroyPipeline(handle);
+    public final void free() {
+        layout.free();
+        handle.device().destroyPipeline(handle.handle());
     }
 
     /**
      * Builder class for configuring a Vulkan graphics or compute pipeline.
      */
-    public static class PipelineBuilder extends CleanerObject {
+    public static class PipelineBuilder extends LibCleanable {
         private final VkPipelineInputAssemblyStateCreateInfo input_assembly_state = VkPipelineInputAssemblyStateCreateInfo.calloc().sType$Default();
         private final VkPipelineVertexInputStateCreateInfo vertex_input_state = VkPipelineVertexInputStateCreateInfo.calloc().sType$Default();
         private final VkPipelineRasterizationStateCreateInfo rasterization_state = VkPipelineRasterizationStateCreateInfo.calloc().sType$Default();
@@ -393,7 +398,7 @@ public class Pipeline extends CleanerObject {
             int index = 0;
             for (var shaders : shader_stages) {
                 var temp = buffer.get(index);
-                temp.sType$Default().pName(entry_name).stage(shaders.getStage()).module(shaders.getShader());
+                temp.sType$Default().pName(entry_name).stage(shaders.getStage().getValue()).module(shaders.getShader());
                 buffer.put(index, temp);
                 index++;
             }
@@ -432,7 +437,7 @@ public class Pipeline extends CleanerObject {
          * Cleans up and frees resources associated with this PipelineBuilder.
          */
         @Override
-        public void cleanup() {
+        public final void free() {
             input_assembly_state.free();
             vertex_input_state.free();
             rasterization_state.free();
@@ -441,10 +446,9 @@ public class Pipeline extends CleanerObject {
             dynamic_state.free();
             depth_stencil_state.free();
             multi_sample_state.free();
-            layout.cleanup();
             MemoryUtil.memFree(entry_name);
             for (var s : shader_stages) {
-                s.cleanup();
+                s.free();
             }
         }
     }

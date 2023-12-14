@@ -1,8 +1,8 @@
 package com.github.vertexvolcani.graphics.vulkan.buffer;
 
 import com.github.vertexvolcani.graphics.vulkan.Device;
-import com.github.vertexvolcani.graphics.vulkan.VmaAllocator;
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandPoolCreateInfo;
@@ -17,36 +17,28 @@ import static org.lwjgl.vulkan.VK10.*;
  * @version 1.0
  * @since 2023-12-04
  */
-public class CommandPool extends CleanerObject {
-    /**
-     * The Vulkan device associated with this command pool.
-     */
-    private final Device device;
-
+public class CommandPool extends LibCleanable {
     /**
      * The handle to the Vulkan command pool.
      */
-    private final long handle;
-
+    private final DeviceHandle handle;
     /**
      * Constructs a new CommandPool associated with the specified device.
      *
      * @param device_in          The Vulkan device associated with the command pool.
      * @param queue_node_index   The index of the queue family to which the command pool belongs.
-     * @param flags              Additional creation flags for the command pool.
+     * @param reset_able          Is command pool reset-able.
      */
-    public CommandPool(Device device_in, int queue_node_index, int flags) {
-        super();
-        device = device_in;
+    public CommandPool(Device device_in, int queue_node_index, boolean reset_able) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer buffer = stack.callocLong(1);
             VkCommandPoolCreateInfo cmdPoolInfo = VkCommandPoolCreateInfo.calloc(stack)
-                    .sType$Default().queueFamilyIndex(queue_node_index).flags(flags);
-            if (device.createCommandPool(cmdPoolInfo, buffer) != VK_SUCCESS) {
+                    .sType$Default().queueFamilyIndex(queue_node_index).flags(reset_able ? VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT:0);
+            if (device_in.createCommandPool(cmdPoolInfo, buffer) != VK_SUCCESS) {
                 Log.print(Log.Severity.ERROR, "Vulkan: failed to create command pool");
                 throw new IllegalStateException("failed to create command pool");
             }
-            handle = buffer.get(0);
+            handle = new DeviceHandle(device_in,buffer.get(0));
         }
     }
 
@@ -56,7 +48,7 @@ public class CommandPool extends CleanerObject {
      * @return The Vulkan handle of the command pool.
      */
     public long getCommandPool() {
-        return handle;
+        return handle.handle();
     }
 
     /**
@@ -66,15 +58,15 @@ public class CommandPool extends CleanerObject {
      * @return VK_SUCCESS if the command pool is successfully reset, or an error code otherwise.
      */
     public int reset(int flags) {
-        return vkResetCommandPool(device.getDevice(), handle, flags);
+        return vkResetCommandPool(handle.device().getDevice(), handle.handle(), flags);
     }
 
     /**
      * Cleans up and destroys the command pool, releasing associated resources.
      */
     @Override
-    public void cleanup() {
-        device.deviceWaitIdle();
-        device.destroyCommandPool(handle);
+    public final void free() {
+        handle.device().deviceWaitIdle();
+        handle.device().destroyCommandPool(handle.handle());
     }
 }

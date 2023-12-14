@@ -1,8 +1,9 @@
 package com.github.vertexvolcani.graphics.vulkan.buffer;
 
 import com.github.vertexvolcani.graphics.vulkan.Device;
+import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.graphics.vulkan.VmaAllocator;
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -13,6 +14,8 @@ import org.lwjgl.vulkan.VkBufferCreateInfo;
 import org.lwjgl.vulkan.VkMemoryRequirements;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
 import static org.lwjgl.util.vma.Vma.*;
@@ -24,11 +27,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @version 1.0
  * @since 2023-11-30
  */
-public class Buffer extends CleanerObject {
-    /**
-     * The Vulkan device associated with this buffer.
-     */
-    private final Device device;
+public class Buffer extends LibCleanable {
     /**
      * The Vulkan Memory Allocator used for managing the buffer.
      */
@@ -37,7 +36,7 @@ public class Buffer extends CleanerObject {
     /**
      * The handle to the Vulkan buffer.
      */
-    private final long handle;
+    private final DeviceHandle handle;
 
     /**
      * The handle to the memory allocation associated with the buffer.
@@ -46,22 +45,19 @@ public class Buffer extends CleanerObject {
     /**
      *  stores the data object count;
      */
-    private long size;
+    private final long size;
 
     /**
      * Constructs a new ABuffer instance.
-     *
-     * @param device_in    The Vulkan device associated with this buffer.
      * @param allocator_in The Vulkan Memory Allocator.
-     * @param size         The size of the buffer.
+     * @param size_in         The size of the buffer.
      * @param sharing_mode        The sharing mode.
      * @param usage        The buffer usage flags.
      * @param vma_usage    The vma usage flags.
      */
-    public Buffer(Device device_in, VmaAllocator allocator_in, @NativeType("VkDeviceSize") long size, boolean sharing_mode, @NativeType("VkBufferUsageFlags") int usage, @NativeType("VmaMemoryUsage") int vma_usage) {
-        super();
-        device = device_in;
+    public Buffer(VmaAllocator allocator_in, @NativeType("VkDeviceSize") long size_in, boolean sharing_mode, @NativeType("VkBufferUsageFlags") int usage, @NativeType("VmaMemoryUsage") int vma_usage) {
         allocator = allocator_in;
+        size = size_in;
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer pBuffer = stack.callocLong(1);
             PointerBuffer pAllocation = stack.callocPointer(1);
@@ -77,7 +73,7 @@ public class Buffer extends CleanerObject {
                 Log.print(Log.Severity.ERROR, "Vulkan: Failed to create Vulkan buffer with VMA.");
                 throw new RuntimeException("Failed to create Vulkan buffer with VMA.");
             }
-            handle = pBuffer.get(0);
+            handle = new DeviceHandle(allocator.getDev(),pBuffer.get(0));
             allocation = pAllocation.get(0);
         }
     }
@@ -98,11 +94,31 @@ public class Buffer extends CleanerObject {
      * transfer data to buffer
      * @param src this is the pointer to the data to be copied
      */
-    public void load(ByteBuffer src) {
+    public Buffer load(ByteBuffer src) {
         final var buffer = map();
-        size = src.remaining();
         MemoryUtil.memCopy(MemoryUtil.memAddress(src),MemoryUtil.memAddress(buffer),src.remaining());
         unmap();
+        return this;
+    }
+    /**
+     * transfer data to buffer
+     * @param src this is the pointer to the data to be copied
+     */
+    public Buffer load(FloatBuffer src) {
+        final var buffer = map();
+        MemoryUtil.memCopy(MemoryUtil.memAddress(src),MemoryUtil.memAddress(buffer), (long) src.remaining() * Float.BYTES);
+        unmap();
+        return this;
+    }
+    /**
+     * transfer data to buffer
+     * @param src this is the pointer to the data to be copied
+     */
+    public Buffer load(IntBuffer src) {
+        final var buffer = map();
+        MemoryUtil.memCopy(MemoryUtil.memAddress(src),MemoryUtil.memAddress(buffer), (long) src.remaining() * Integer.BYTES);
+        unmap();
+        return this;
     }
     /**
      * Unmaps the buffer memory.
@@ -119,7 +135,7 @@ public class Buffer extends CleanerObject {
     protected long getMemorySize() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkMemoryRequirements memory_requirements = VkMemoryRequirements.calloc(stack);
-            device.getBufferMemoryRequirements(handle, memory_requirements);
+            handle.device().getBufferMemoryRequirements(handle.handle(), memory_requirements);
             return memory_requirements.size();
         }
     }
@@ -138,15 +154,14 @@ public class Buffer extends CleanerObject {
      * @return VkBuffer handle of the vulkan object
      */
     public long getBuffer() {
-        return handle;
+        return handle.handle();
     }
-
     /**
      * Cleans up resources associated with the buffer.
      */
     @Override
-    public final void cleanup() {
-        device.deviceWaitIdle();
-        vmaDestroyBuffer(allocator.getVmaAllocator(), handle, allocation);
+    public final void free() {
+        handle.device().deviceWaitIdle();
+        vmaDestroyBuffer(allocator.getVmaAllocator(), handle.handle(), allocation);
     }
 }

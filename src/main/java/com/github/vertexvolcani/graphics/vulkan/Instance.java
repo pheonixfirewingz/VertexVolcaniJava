@@ -1,7 +1,6 @@
 package com.github.vertexvolcani.graphics.vulkan;
 
-import com.github.vertexvolcani.Window;
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -24,10 +23,12 @@ import static org.lwjgl.vulkan.VK10.*;
  * @version 1.0
  * @since 2023-11-29
  */
-public class Instance extends CleanerObject {
+public class Instance extends LibCleanable {
 
     /** The Vulkan instance handle. */
     private final VkInstance instance;
+
+    private final boolean debug;
 
     /** The debug messenger callback function. */
     private final VkDebugUtilsMessengerCallbackEXT dbgFunc = VkDebugUtilsMessengerCallbackEXT.create(
@@ -107,11 +108,12 @@ public class Instance extends CleanerObject {
 
     /**
      * Constructor for creating Vulkan instance
-     * @param debug should vulkan enabled debug or not
+     * @param debug_in should vulkan enabled debug or not
      * @param app_name to tell the instance the name of the app
      */
-    public Instance(boolean debug,CharSequence app_name) {
+    public Instance(boolean debug_in,CharSequence app_name) {
         super();
+        debug = debug_in;
         Log.print(Log.Severity.DEBUG,"Vulkan: creating Instance");
         if(debug){
             Log.print(Log.Severity.DEBUG,"Vulkan: debugging enabled");
@@ -254,12 +256,13 @@ public class Instance extends CleanerObject {
      * This method should be called when the instance is no longer needed to release Vulkan resources.
      */
     @Override
-    public final void cleanup() {
-        if(instance == null) {
-            return;
-        }
+    public final void free() {
         vkDestroyInstance(instance, null);
         Log.print(Log.Severity.DEBUG,"Vulkan: instance free memory done");
         dbgFunc.free();
+    }
+
+    public boolean getDebug() {
+        return debug;
     }
 }

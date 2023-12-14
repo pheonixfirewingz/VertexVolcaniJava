@@ -1,7 +1,8 @@
 package com.github.vertexvolcani.graphics.vulkan.pipeline;
 
 import com.github.vertexvolcani.graphics.vulkan.Device;
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nonnull;
 import org.lwjgl.system.MemoryStack;
@@ -21,15 +22,11 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
  * @version 1.0
  * @since 2023-12-03
  */
-public class Event extends CleanerObject {
-    /**
-     * The Vulkan device associated with this buffer.
-     */
-    private final Device device;
+public class Event extends LibCleanable {
     /**
      * The handle to the Vulkan event.
      */
-    private final long handle;
+    private final DeviceHandle handle;
     /**
      * Constructs a new Event object.
      *
@@ -37,35 +34,29 @@ public class Event extends CleanerObject {
      * @throws IllegalStateException If the creation of the Vulkan event fails.
      */
     public Event(@Nonnull Device device_in) {
-        super();
-
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer buffer = stack.callocLong(1);
-            device = device_in;
-
             VkEventCreateInfo pCreateInfo = VkEventCreateInfo.calloc(stack);
             pCreateInfo.sType$Default().pNext(NULL);
-
             // Create the Vulkan event object
-            if (device.createEvent(pCreateInfo, buffer) != VK_SUCCESS) {
+            if (device_in.createEvent(pCreateInfo, buffer) != VK_SUCCESS) {
                 Log.print(Log.Severity.ERROR, "Vulkan: could not create event");
                 throw new IllegalStateException("could not create event");
             }
-
-            handle = buffer.get(0);
+            handle = new DeviceHandle(device_in,buffer.get(0));
         }
     }
     /**
-     * Resets the event to the unsignaled state.
+     * Resets the event to the un-signaled state.
      */
     public int reset() {
-        return device.resetEvent(handle);
+        return handle.device().resetEvent(handle.handle());
     }
     /**
      * Gets the status of the event.
      */
     public int getStatus() {
-        return device.getEventStatus(handle);
+        return handle.device().getEventStatus(handle.handle());
     }
 
     /**
@@ -73,15 +64,7 @@ public class Event extends CleanerObject {
      * @return VkResult
      */
     public int set() {
-        return device.setEvent(handle);
-    }
-    /**
-     * Gets the handle to the Vulkan event object.
-     *
-     * @return The handle to the Vulkan event.
-     */
-    public long getFence() {
-        return handle;
+        return handle.device().setEvent(handle.handle());
     }
     /**
      * Gets the handle of the Vulkan event.
@@ -89,16 +72,13 @@ public class Event extends CleanerObject {
      * @return The handle of the Vulkan event.
      */
     public long getEvent() {
-        return handle;
+        return handle.handle();
     }
     /**
      * Cleans up and destroys the Vulkan event.
      */
     @Override
-    public void cleanup() {
-        if(handle == VK_NULL_HANDLE) {
-            return;
-        }
-        device.destroyEvent(handle);
+    public final void free() {
+        handle.device().destroyEvent(handle.handle());
     }
 }

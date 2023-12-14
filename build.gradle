@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.github.vertexvolcani'
-version = 'ALPHA-1.0'
+version = 'ALPHA-2.0'
 
 repositories {
     mavenCentral()
@@ -55,6 +55,10 @@ dependencies {
     implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: Log4jVersion
     // https://mvnrepository.com/artifact/jakarta.annotation/jakarta.annotation-api
     implementation group: 'jakarta.annotation', name: 'jakarta.annotation-api', version: '3.0.0-M1'
+
+    // https://mvnrepository.com/artifact/de.javagl/obj
+    implementation group: 'de.javagl', name: 'obj', version: '0.4.0'
+
 
     implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
 

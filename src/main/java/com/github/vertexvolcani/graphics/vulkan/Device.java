@@ -1,8 +1,6 @@
 package com.github.vertexvolcani.graphics.vulkan;
 
-import com.github.vertexvolcani.message.IListener;
-import com.github.vertexvolcani.message.events.IEvent;
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
@@ -11,6 +9,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.NativeType;
 import org.lwjgl.vulkan.*;
 
+import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
@@ -20,10 +19,12 @@ import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
 
 // Code adapted from https://github.com/LWJGL/lwjgl3/blob/master/modules/samples/src/test/java/org/lwjgl/demo/vulkan/HelloVulkan.java
-public class Device extends CleanerObject {
+public class Device extends LibCleanable {
     private final VkDevice device;
     private final VkPhysicalDevice physical_device;
+    private final VkPhysicalDeviceProperties properties = VkPhysicalDeviceProperties.calloc();
     private int graphics_index;
+    private final boolean debug;
     private static VkPhysicalDevice selectPhysicalDevice(@Nonnull VkInstance instance) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             // Enumerate physical devices
@@ -72,7 +73,7 @@ public class Device extends CleanerObject {
     }
 
     public Device(@Nonnull Instance instance) {
-        super();
+        debug = instance.getDebug();
         Log.print(Log.Severity.DEBUG, "Vulkan: creating Device...");
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PointerBuffer handle = stack.mallocPointer(1);
@@ -173,6 +174,8 @@ public class Device extends CleanerObject {
                     .ppEnabledLayerNames(null)
                     .ppEnabledExtensionNames(extension_names)
                     .pEnabledFeatures(features);
+
+            vkGetPhysicalDeviceProperties(physical_device, properties);
 
             // Create Vulkan device
             if (vkCreateDevice(physical_device, pCreateInfo, null, handle) != VK_SUCCESS) {
@@ -504,10 +507,19 @@ public class Device extends CleanerObject {
         return vkDeviceWaitIdle(device);
     }
 
+    public boolean isDebug() {
+        return debug;
+    }
+
     @Override
-    public final void cleanup() {
+    protected final void free() {
         deviceWaitIdle();
+        properties.free();
         vkDestroyDevice(device, null);
         Log.print(Log.Severity.DEBUG, "Vulkan: device free memory done");
+    }
+
+    public VkPhysicalDeviceLimits getLimits() {
+            return properties.limits();
     }
 }

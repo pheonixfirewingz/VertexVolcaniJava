@@ -1,7 +1,7 @@
 package com.github.vertexvolcani.graphics.vulkan;
 
-import com.github.vertexvolcani.Window;
-import com.github.vertexvolcani.util.CleanerObject;
+import com.github.vertexvolcani.graphics.Window;
+import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nonnull;
 import org.lwjgl.system.MemoryStack;
@@ -14,8 +14,7 @@ import java.nio.LongBuffer;
 
 import static org.lwjgl.glfw.GLFWVulkan.*;
 import static org.lwjgl.vulkan.KHRSurface.*;
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
+import static org.lwjgl.vulkan.VK10.*;
 
 /**
  * Represents a Vulkan surface associated with a GLFW window.
@@ -24,21 +23,17 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
  * @version 1.0
  * @since 2023-12-01
  */
-public class Surface extends CleanerObject {
+public class Surface extends LibCleanable {
 
     /**
      * The Vulkan instance associated with this surface.
      */
     private final Instance instance;
-    /**
-     * The Vulkan device associated with this surface.
-     */
-    private final Device device;
 
     /**
      * The handle to the Vulkan surface.
      */
-    private final long handle;
+    private final DeviceHandle handle;
 
     private final VkSurfaceFormatKHR.Buffer formats;
 
@@ -50,10 +45,8 @@ public class Surface extends CleanerObject {
      * @throws IllegalStateException If the surface creation fails.
      */
     public Surface(@Nonnull Window window,@Nonnull Instance instance_in,@Nonnull Device device_in) {
-        super();
         Log.print(Log.Severity.DEBUG, "Vulkan: creating Vulkan surface...");
         instance = instance_in;
-        device = device_in;
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer buffer = stack.callocLong(1);
             IntBuffer pFormatCount = stack.callocInt(1);
@@ -61,21 +54,35 @@ public class Surface extends CleanerObject {
                 Log.print(Log.Severity.ERROR, "Vulkan: could not create window binder surface");
                 throw new IllegalStateException("Could not create window binder surface");
             }
-            handle = buffer.get(0);
+            handle = new DeviceHandle(device_in,buffer.get(0));
 
-            if (vkGetPhysicalDeviceSurfaceFormatsKHR(device.getPhysicalDevice(), handle, pFormatCount, null) != VK_SUCCESS) {
+            if (vkGetPhysicalDeviceSurfaceFormatsKHR(handle.device().getPhysicalDevice(), handle.handle(), pFormatCount, null) != VK_SUCCESS) {
                 Log.print(Log.Severity.ERROR,"Vulkan: Failed to query number of physical device surface formats");
                 throw new IllegalStateException("Failed to query number of physical device surface formats");
             }
 
             formats = VkSurfaceFormatKHR.calloc(pFormatCount.get(0));
             int formatCount = pFormatCount.get(0);
-            if (vkGetPhysicalDeviceSurfaceFormatsKHR(device.getPhysicalDevice(), handle, pFormatCount, formats) != VK_SUCCESS) {
+            if (vkGetPhysicalDeviceSurfaceFormatsKHR(handle.device().getPhysicalDevice(), handle.handle(), pFormatCount, formats) != VK_SUCCESS) {
                 Log.print(Log.Severity.ERROR,"Vulkan: Failed to query physical device surface formats");
                 throw new IllegalStateException("Failed to query physical device surface formats");
             }
         }
         Log.print(Log.Severity.DEBUG, "Vulkan: done creating Vulkan surface");
+    }
+
+    public int getColourSpace() {
+        return formats.get(0).colorSpace();
+    }
+
+    public int getColourFormat() {
+        int colour_format;
+        if (formats.remaining() == 1 && formats.get(0).format() == VK_FORMAT_UNDEFINED) {
+            colour_format = VK_FORMAT_B8G8R8A8_UNORM;
+        } else {
+            colour_format = formats.get(0).format();
+        }
+        return colour_format;
     }
 
     /**
@@ -84,17 +91,13 @@ public class Surface extends CleanerObject {
      * @return The handle to the Vulkan surface.
      */
     public long getSurface() {
-        return handle;
-    }
-
-    public VkSurfaceFormatKHR.Buffer getSurfaceFormats() {
-        return formats;
+        return handle.handle();
     }
 
     public VkExtent2D getSurfaceSize() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkSurfaceCapabilitiesKHR surfCaps = VkSurfaceCapabilitiesKHR.calloc(stack);
-            if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.getPhysicalDevice(), handle, surfCaps) != VK_SUCCESS) {
+            if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(handle.device().getPhysicalDevice(), handle.handle(), surfCaps) != VK_SUCCESS) {
                 Log.print(Log.Severity.ERROR, "Vulkan: Failed to get physical device surface capabilities");
                 throw new IllegalStateException("Failed to get physical device surface capabilities");
             }
@@ -106,8 +109,8 @@ public class Surface extends CleanerObject {
      * Cleans up and destroys the Vulkan surface.
      */
     @Override
-    public final void cleanup() {
-        vkDestroySurfaceKHR(instance.getInstance(), handle, null);
+    public final void free() {
+        vkDestroySurfaceKHR(instance.getInstance(), handle.handle(), null);
         formats.free();
         Log.print(Log.Severity.DEBUG, "Vulkan: done freeing Vulkan surface");
     }

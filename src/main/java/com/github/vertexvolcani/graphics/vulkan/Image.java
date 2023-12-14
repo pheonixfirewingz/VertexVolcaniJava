@@ -1,5 +1,10 @@
 package com.github.vertexvolcani.graphics.vulkan;
-
+/* Vertex Volcani - LICENCE
+ *
+ * GNU Lesser General Public License Version 3.0
+ *
+ * Copyright Luke Shore (c) 2023, 2024
+ */
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import org.lwjgl.PointerBuffer;
@@ -19,10 +24,9 @@ import static org.lwjgl.vulkan.VK10.*;
 
 /**
  * A class representing a Vulkan image managed by Vulkan Memory Allocator (VMA).
- *
  * @author Luke Shore
  * @version 1.0
- * @since 2023-11-30
+ * @since 2023-12-14
  */
 public class Image extends LibCleanable {
     /**

@@ -1,5 +1,10 @@
 package com.github.vertexvolcani.graphics.vulkan;
-
+/* Vertex Volcani - LICENCE
+ *
+ * GNU Lesser General Public License Version 3.0
+ *
+ * Copyright Luke Shore (c) 2023, 2024
+ */
 import com.github.vertexvolcani.graphics.Window;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;

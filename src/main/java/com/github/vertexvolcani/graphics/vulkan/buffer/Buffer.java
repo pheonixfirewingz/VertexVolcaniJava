@@ -1,6 +1,10 @@
 package com.github.vertexvolcani.graphics.vulkan.buffer;
-
-import com.github.vertexvolcani.graphics.vulkan.Device;
+/* Vertex Volcani - LICENCE
+ *
+ * GNU Lesser General Public License Version 3.0
+ *
+ * Copyright Luke Shore (c) 2023, 2024
+ */
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.graphics.vulkan.VmaAllocator;
 import com.github.vertexvolcani.util.LibCleanable;
@@ -20,7 +24,6 @@ import java.nio.LongBuffer;
 
 import static org.lwjgl.util.vma.Vma.*;
 import static org.lwjgl.vulkan.VK10.*;
-
 /**
  * A class representing a Vulkan buffer managed by Vulkan Memory Allocator (VMA).
  * @author Luke Shore

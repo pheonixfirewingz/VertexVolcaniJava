@@ -17,7 +17,6 @@ import static org.lwjgl.system.MemoryUtil.memUTF8;
 import static org.lwjgl.util.shaderc.Shaderc.*;
 import static org.lwjgl.vulkan.KHRRayTracingPipeline.*;
 import static org.lwjgl.vulkan.VK10.*;
-
 /**
  * Utility functions for shaderc. taken from lwjgl3 demos
  * @author Kai Burjack

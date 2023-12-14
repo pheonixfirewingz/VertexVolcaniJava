@@ -1,12 +1,20 @@
 package org.github.vertexvolcani;
-
+/* Vertex Volcani - LICENCE
+ *
+ * GNU Lesser General Public License Version 3.0
+ *
+ * Copyright Luke Shore (c) 2022, 2023
+ */
 import com.github.vertexvolcani.graphics.Window;
 import com.github.vertexvolcani.graphics.events.KeyEvent;
 import com.github.vertexvolcani.graphics.vulkan.*;
 import com.github.vertexvolcani.graphics.vulkan.buffer.*;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.*;
 import com.github.vertexvolcani.util.Log;
-import de.javagl.obj.*;
+import de.javagl.obj.Obj;
+import de.javagl.obj.ObjData;
+import de.javagl.obj.ObjReader;
+import de.javagl.obj.ObjUtils;
 import org.github.vertexvolcani.util.Camera;
 import org.joml.Matrix4f;
 import org.lwjgl.PointerBuffer;
@@ -27,11 +35,10 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class ModelDemo {
 
-    private Window window;
     private final Camera camera = new Camera();
+    private Window window;
     private FrameBuffer[] frame_buffers;
     private CommandBuffer[] command_buffers;
-    private Buffer[] uniform_buffer;
 
     public static void main(String[] args) throws Exception {
         System.setProperty("LWJGL_DISABLE_RENDEROCD", "false");
@@ -68,38 +75,38 @@ public class ModelDemo {
     }
 
     private Vertices createVertices(VmaAllocator allocator) throws Exception {
-            Obj obj;
-            try (InputStream file_data = Thread.currentThread().getContextClassLoader().getResourceAsStream("./model/sponza/sponza.obj")) {
-                obj = ObjReader.read(file_data);
-                obj = ObjUtils.triangulate(obj);
-                obj = ObjUtils.makeTexCoordsUnique(obj);
-                obj = ObjUtils.makeVertexIndexed(obj);
-                obj = ObjUtils.convertToRenderable(obj);
+        Obj obj;
+        try (InputStream file_data = Thread.currentThread().getContextClassLoader().getResourceAsStream("./model/sponza/sponza.obj")) {
+            obj = ObjReader.read(file_data);
+            obj = ObjUtils.triangulate(obj);
+            obj = ObjUtils.makeTexCoordsUnique(obj);
+            obj = ObjUtils.makeVertexIndexed(obj);
+            obj = ObjUtils.convertToRenderable(obj);
 
-            }
-            IntBuffer index = ObjData.getFaceVertexIndices(obj,4);
-            Buffer buffer = new VertexBuffer(allocator, ObjData.getTotalNumFaceVertices(obj) * 3L, false, VmaMemoryUsage.CPU_TO_GPU).load(ObjData.getVertices(obj));
-            Buffer index_buffer = new IndexBuffer(allocator, index.remaining(), false, VmaMemoryUsage.CPU_TO_GPU).load(index);
+        }
+        IntBuffer index = ObjData.getFaceVertexIndices(obj, 4);
+        Buffer buffer = new VertexBuffer(allocator, ObjData.getTotalNumFaceVertices(obj) * 3L, false, VmaMemoryUsage.CPU_TO_GPU).load(ObjData.getVertices(obj));
+        Buffer index_buffer = new IndexBuffer(allocator, index.remaining(), false, VmaMemoryUsage.CPU_TO_GPU).load(index);
 
-            VkVertexInputBindingDescription.Buffer bindingDescriptor = VkVertexInputBindingDescription.calloc(1);
-            bindingDescriptor.binding(0).stride(3 * Float.BYTES).inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
+        VkVertexInputBindingDescription.Buffer bindingDescriptor = VkVertexInputBindingDescription.calloc(1);
+        bindingDescriptor.binding(0).stride(3 * Float.BYTES).inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
 
-            VkVertexInputAttributeDescription.Buffer attributeDescriptions = VkVertexInputAttributeDescription.calloc(1);
-            attributeDescriptions.get(0).binding(0).location(0).format(VK_FORMAT_R32G32B32_SFLOAT).offset(0);
+        VkVertexInputAttributeDescription.Buffer attributeDescriptions = VkVertexInputAttributeDescription.calloc(1);
+        attributeDescriptions.get(0).binding(0).location(0).format(VK_FORMAT_R32G32B32_SFLOAT).offset(0);
 
-            Vertices ret = new Vertices();
-            ret.buffer = buffer;
-            ret.index_buffer = index_buffer;
-            ret.bindingDescriptor = bindingDescriptor;
-            ret.attributeDescriptions = attributeDescriptions;
-            return ret;
+        Vertices ret = new Vertices();
+        ret.buffer = buffer;
+        ret.index_buffer = index_buffer;
+        ret.bindingDescriptor = bindingDescriptor;
+        ret.attributeDescriptions = attributeDescriptions;
+        return ret;
     }
 
     private Pipeline createPipeline(Device device, RenderPass renderPass, Vertices vertices) throws IOException {
         Pipeline pipeline;
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PipelineLayout.PushConstant[] pushConstant = new PipelineLayout.PushConstant[1];
-            pushConstant[0] = new PipelineLayout.PushConstant(ShaderType.VERTEX,0,(Float.BYTES * (4 * 4)) * 2);
+            pushConstant[0] = new PipelineLayout.PushConstant(ShaderType.VERTEX, 0, (Float.BYTES * (4 * 4)) * 2);
             PipelineLayout layout = new PipelineLayout(device, 0, null, pushConstant);
             Shader[] shaders = new Shader[2];
             shaders[0] = new Shader(device, "shader.vert", ShaderType.VERTEX);
@@ -166,7 +173,7 @@ public class ModelDemo {
                 renderCommandBuffers[i].bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
                 PushConstants pushConstants = new PushConstants();
-                pushConstants.projection =  window.getProjection();
+                pushConstants.projection = window.getProjection();
                 pushConstants.view = camera.getViewMatrix();
 
                 renderCommandBuffers[i].pushConstants(pipeline, VK_SHADER_STAGE_VERTEX_BIT, 0, pushConstants.toFloatBuffer(stack));
@@ -176,8 +183,8 @@ public class ModelDemo {
                 LongBuffer pBuffers = stack.callocLong(1);
                 pBuffers.put(0, buffer.buffer.getBuffer());
                 renderCommandBuffers[i].bindVertexBuffers(0, pBuffers, offsets);
-                renderCommandBuffers[i].bindIndexBuffer(buffer.index_buffer,0,VK_INDEX_TYPE_UINT32);
-                renderCommandBuffers[i].drawIndexed((int) buffer.index_buffer.getSize(), 1, 0, 0,0);
+                renderCommandBuffers[i].bindIndexBuffer(buffer.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+                renderCommandBuffers[i].drawIndexed((int) buffer.index_buffer.getSize(), 1, 0, 0, 0);
                 renderCommandBuffers[i].endRenderPass();
 
                 if (renderCommandBuffers[i].end() != VK_SUCCESS) {
@@ -193,15 +200,15 @@ public class ModelDemo {
         System.out.print(new Matrix4f().identity().scale(0.5f).toString());
         try (MemoryStack stack = MemoryStack.stackPush()) {
             window = new Window(800, 600, "GLFW Vulkan Demo", (event) -> {
-                if(event.getID() == KeyEvent.ID) {
+                if (event.getID() == KeyEvent.ID) {
                     KeyEvent keyEvent = (KeyEvent) event;
-                    if(keyEvent.key == GLFW_KEY_W) {
+                    if (keyEvent.key == GLFW_KEY_W) {
                         camera.update(0, 0, 0.1f, 0, 0, 0);
-                    } else if(keyEvent.key == GLFW_KEY_S) {
+                    } else if (keyEvent.key == GLFW_KEY_S) {
                         camera.update(0, 0, -0.1f, 0, 0, 0);
-                    } else if(keyEvent.key == GLFW_KEY_A) {
+                    } else if (keyEvent.key == GLFW_KEY_A) {
                         camera.update(0.1f, 0, 0, 0, 0, 0);
-                    } else if(keyEvent.key == GLFW_KEY_D) {
+                    } else if (keyEvent.key == GLFW_KEY_D) {
                         camera.update(0.1f, 0, 0, 0, 0, 0);
                     } else if (keyEvent.key == GLFW_KEY_Q) {
                         camera.update(0, 0, 0, 0, 0.1f, 0);
@@ -261,10 +268,10 @@ public class ModelDemo {
 
             pWaitDstStageMask.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-            uniform_buffer = new Buffer[command_buffers.length];
+            final Buffer[] uniform_buffer = new Buffer[command_buffers.length];
             for (int i = 0; i < uniform_buffer.length; ++i) {
                 //size of uniform class
-                uniform_buffer[i] = new UniformBuffer(allocator,(Float.BYTES * 16),false,VmaMemoryUsage.CPU_TO_GPU);
+                uniform_buffer[i] = new UniformBuffer(allocator, (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU);
             }
 
             while (!window.ShouldClose()) {
@@ -310,12 +317,12 @@ public class ModelDemo {
 
         public ByteBuffer toFloatBuffer(MemoryStack stack) {
             ByteBuffer buffer = stack.calloc((Float.BYTES * (4 * 4)) * 2);
-            for(int i = 0; i < 4; i++) {
+            for (int i = 0; i < 4; i++) {
                 for (int j = 0; j < 4; j++) {
                     buffer.putFloat(view.get(i, j));
                 }
             }
-            for(int i = 0; i < 4; i++) {
+            for (int i = 0; i < 4; i++) {
                 for (int j = 0; j < 4; j++) {
                     buffer.putFloat(projection.get(i, j));
                 }

@@ -1,10 +1,14 @@
 package com.github.vertexvolcani.util;
-
+/* Vertex Volcani - LICENCE
+ *
+ * GNU Lesser General Public License Version 3.0
+ *
+ * Copyright Luke Shore (c) 2023, 2024
+ */
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
-
 /**
  * Handles logging and debug messages for Vulkan applications using SLF4J.
  * This class provides methods to log messages with different severity levels and handles Vulkan debug messages.

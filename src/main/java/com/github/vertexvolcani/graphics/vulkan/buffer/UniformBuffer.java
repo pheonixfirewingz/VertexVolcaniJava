@@ -1,10 +1,18 @@
 package com.github.vertexvolcani.graphics.vulkan.buffer;
-
+/* Vertex Volcani - LICENCE
+ *
+ * GNU Lesser General Public License Version 3.0
+ *
+ * Copyright Luke Shore (c) 2023, 2024
+ */
 import com.github.vertexvolcani.graphics.vulkan.VmaAllocator;
 
 import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
+/* @author Luke Shore
+ * @version 1.0
+ * @since 2023-12-14
+ */
 public class UniformBuffer extends Buffer{
     /**
      * Constructs a new ABuffer instance.

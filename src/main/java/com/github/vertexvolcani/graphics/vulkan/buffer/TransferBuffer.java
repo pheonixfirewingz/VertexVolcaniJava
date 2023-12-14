@@ -1,11 +1,21 @@
 package com.github.vertexvolcani.graphics.vulkan.buffer;
-
+/* Vertex Volcani - LICENCE
+ *
+ * GNU Lesser General Public License Version 3.0
+ *
+ * Copyright Luke Shore (c) 2023, 2024
+ */
 import com.github.vertexvolcani.graphics.vulkan.VmaAllocator;
 import org.lwjgl.system.NativeType;
 
 import static org.lwjgl.util.vma.Vma.*;
 import static org.lwjgl.vulkan.VK10.*;
-
+/**
+ * A class representing a Vulkan Transfer buffer managed by Vulkan Memory Allocator (VMA).
+ * @author Luke Shore
+ * @version 1.0
+ * @since 2023-11-30
+ */
 public class TransferBuffer extends Buffer{
     /**
      * Constructs a new ABuffer instance.

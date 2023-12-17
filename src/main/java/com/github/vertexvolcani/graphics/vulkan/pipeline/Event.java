@@ -5,6 +5,7 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
@@ -16,8 +17,6 @@ import org.lwjgl.vulkan.VkEventCreateInfo;
 import java.nio.LongBuffer;
 
 import static org.lwjgl.system.MemoryUtil.NULL;
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 
 /**
  * Represents a Vulkan event.
@@ -44,46 +43,45 @@ public class Event extends LibCleanable {
             VkEventCreateInfo pCreateInfo = VkEventCreateInfo.calloc(stack);
             pCreateInfo.sType$Default().pNext(NULL);
             // Create the Vulkan event object
-            if (device_in.createEvent(pCreateInfo, buffer) != VK_SUCCESS) {
+            handle = device_in.createEvent(pCreateInfo);
+            if (device_in.didErrorOccur()) {
                 Log.print(Log.Severity.ERROR, "Vulkan: could not create event");
                 throw new IllegalStateException("could not create event");
             }
-            handle = new DeviceHandle(device_in,buffer.get(0));
         }
     }
     /**
      * Resets the event to the un-signaled state.
      */
-    public int reset() {
-        return handle.device().resetEvent(handle.handle());
+    public void reset() {
+        handle.device().resetEvent(handle);
     }
     /**
      * Gets the status of the event.
      */
-    public int getStatus() {
-        return handle.device().getEventStatus(handle.handle());
+    public void getStatus() {
+         handle.device().getEventStatus(handle);
     }
 
     /**
      * To set the state of an event to signaled from the host
-     * @return VkResult
      */
-    public int set() {
-        return handle.device().setEvent(handle.handle());
+    public void set() {
+         handle.device().setEvent(handle);
     }
     /**
      * Gets the handle of the Vulkan event.
      *
      * @return The handle of the Vulkan event.
      */
-    public long getEvent() {
-        return handle.handle();
+    public DeviceHandle getEvent() {
+        return handle;
     }
     /**
      * Cleans up and destroys the Vulkan event.
      */
     @Override
     public final void free() {
-        handle.device().destroyEvent(handle.handle());
+        handle.device().destroyEvent(handle);
     }
 }

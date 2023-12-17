@@ -5,18 +5,13 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+
 import com.github.vertexvolcani.graphics.vulkan.Device;
+import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nonnull;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkSemaphoreCreateInfo;
-
-import java.nio.LongBuffer;
-
-import static org.lwjgl.system.MemoryUtil.NULL;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 /**
  * A class representing a Vulkan semaphore.
  * Semaphores are synchronization primitives used in Vulkan to coordinate operations between different queues.
@@ -25,28 +20,21 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
  * @since 2023-11-30
  */
 public class Semaphore extends LibCleanable {
-    /** The Vulkan device associated with this semaphore. */
-    private final Device device;
     /** The handle to the Vulkan semaphore. */
-    private final LongBuffer handle;
-    private final long handle_deref;
+    private final DeviceHandle handle;
     /**
      * Constructs a new Semaphore instance associated with the given Vulkan device.
      *
      * @param device_in The Vulkan device to associate with the semaphore.
      */
     public Semaphore(@Nonnull Device device_in) {
-        super();
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            handle = MemoryUtil.memAllocLong(1);
-            device = device_in;
-            VkSemaphoreCreateInfo pCreateInfo = VkSemaphoreCreateInfo.calloc(stack);
-            pCreateInfo.sType$Default().pNext(NULL).flags(0);
-            if(device.createSemaphore(pCreateInfo, handle) != VK_SUCCESS) {
+        try (VkSemaphoreCreateInfo.Buffer pCreateInfo = VkSemaphoreCreateInfo.calloc(1)) {
+            pCreateInfo.sType$Default().pNext(0).flags(0);
+            handle = device_in.createSemaphore(pCreateInfo.get(0));
+            if(device_in.didErrorOccur()) {
                 Log.print(Log.Severity.ERROR,"Vulkan: could not create semaphore");
                 throw new IllegalStateException("could not create semaphore");
             }
-            handle_deref = handle.get(0);
         }
     }
 
@@ -55,17 +43,7 @@ public class Semaphore extends LibCleanable {
      *
      * @return The handle to the Vulkan semaphore.
      */
-    public long getSemaphore() {
-        return handle_deref;
-    }
-
-
-    /**
-     * Gets the handle pointer to the Vulkan semaphore.
-     *
-     * @return The handle pointer to the Vulkan semaphore.
-     */
-    public LongBuffer getSemaphorePtr() {
+    public DeviceHandle getSemaphore() {
         return handle;
     }
 
@@ -75,8 +53,7 @@ public class Semaphore extends LibCleanable {
      */
     @Override
     public final void free() {
-        device.deviceWaitIdle();
-        device.destroySemaphore(handle_deref);
-        MemoryUtil.memFree(handle);
+        handle.device().waitIdle();
+        handle.device().destroySemaphore(handle);
     }
 }

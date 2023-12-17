@@ -5,20 +5,17 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import com.github.vertexvolcani.util.ShaderCUtil;
 import jakarta.annotation.Nonnull;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkShaderModuleCreateInfo;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.LongBuffer;
-
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 
 /**
  * Represents a Vulkan shader module used in the creation of a pipeline.
@@ -49,16 +46,13 @@ public class Shader extends LibCleanable {
      */
     public Shader(@Nonnull Device device_in, @Nonnull ByteBuffer spriv, ShaderType stage_in) {
         stage = stage_in;
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            VkShaderModuleCreateInfo moduleCreateInfo = VkShaderModuleCreateInfo.calloc(stack)
-                    .sType$Default()
-                    .pCode(spriv);
-            LongBuffer buffer = stack.callocLong(1);
-            if (device_in.createShaderModule(moduleCreateInfo, buffer) != VK_SUCCESS) {
+        try (VkShaderModuleCreateInfo.Buffer moduleCreateInfo = VkShaderModuleCreateInfo.calloc(1)) {
+            moduleCreateInfo.sType$Default().pCode(spriv);
+            handle = device_in.createShaderModule(moduleCreateInfo.get(0));
+            if (device_in.didErrorOccur()) {
                 Log.print(Log.Severity.ERROR, "Vulkan: Failed to create shader module");
                 throw new IllegalStateException("Failed to create shader module");
             }
-            handle = new DeviceHandle(device_in, buffer.get(0));
         }
     }
 
@@ -71,15 +65,13 @@ public class Shader extends LibCleanable {
      */
     public Shader(@Nonnull Device device_in, @Nonnull String source_file_path, ShaderType stage_in) {
         stage = stage_in;
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            VkShaderModuleCreateInfo moduleCreateInfo = VkShaderModuleCreateInfo.calloc(stack)
-                    .sType$Default().pCode(ShaderCUtil.glslToSpirv(source_file_path,stage.getValue(),device_in.isDebug()));
-            LongBuffer buffer = stack.callocLong(1);
-            if (device_in.createShaderModule(moduleCreateInfo, buffer) != VK_SUCCESS) {
+        try (VkShaderModuleCreateInfo.Buffer moduleCreateInfo = VkShaderModuleCreateInfo.calloc(1)) {
+            moduleCreateInfo.sType$Default().pCode(ShaderCUtil.glslToSpirv(source_file_path,stage.getValue(),device_in.isDebug()));
+            handle = device_in.createShaderModule(moduleCreateInfo.get(0));
+            if (device_in.didErrorOccur()) {
                 Log.print(Log.Severity.ERROR, "Vulkan: Failed to create shader module");
                 throw new IllegalStateException("Failed to create shader module");
             }
-            handle = new DeviceHandle(device_in, buffer.get(0));
         } catch (IOException e) {
             Log.print(Log.Severity.ERROR, "Vulkan: Failed to compile shader module");
             throw new IllegalStateException("Failed to compile shader module");
@@ -100,8 +92,8 @@ public class Shader extends LibCleanable {
      *
      * @return The Vulkan handle of the shader module.
      */
-    public long getShader() {
-        return handle.handle();
+    public DeviceHandle getShader() {
+        return handle;
     }
 
     /**
@@ -112,6 +104,6 @@ public class Shader extends LibCleanable {
      */
     @Override
     public final void free() {
-        handle.device().destroyShaderModule(handle.handle());
+        handle.device().destroyShaderModule(handle);
     }
 }

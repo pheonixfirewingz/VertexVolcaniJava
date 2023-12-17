@@ -3,7 +3,7 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  *
  * GNU Lesser General Public License Version 3.0
  *
- * Copyright Luke Shore (c) 2023, 2024
+ * Copyright Luke Shore (c) 2022, 2023
  */
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
@@ -20,8 +20,7 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
-import static org.lwjgl.vulkan.VK10.VK_NULL_HANDLE;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
+import static org.lwjgl.vulkan.VK10.*;
 
 /**
  * Represents a Vulkan graphics or compute pipeline.
@@ -51,21 +50,23 @@ public class Pipeline extends LibCleanable {
      */
     public Pipeline(@Nonnull Device device_in, @Nonnull PipelineBuilder builder, @Nullable PipelineCache cache, boolean compute) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            LongBuffer buffer = stack.callocLong(1);
+            long[] buffer = new long[1];
             if (compute) {
                 VkComputePipelineCreateInfo.Buffer pCreateInfo = builder.buildComputePipeline(stack);
-                if (device_in.createComputePipelines(cache != null ? cache.getPipelineCache() : VK_NULL_HANDLE, pCreateInfo, buffer) != VK_SUCCESS) {
+                device_in.createComputePipelines(cache == null ? null : cache.getPipelineCache(), pCreateInfo, buffer);
+                if (device_in.didErrorOccur()) {
                     Log.print(Log.Severity.ERROR, "Vulkan: failed to create compute pipeline");
                     throw new IllegalStateException("failed to create compute pipeline");
                 }
             } else {
                 VkGraphicsPipelineCreateInfo.Buffer pipelineCreateInfo = builder.buildGraphicsPipeline(stack);
-                if (device_in.createGraphicsPipelines(cache != null ? cache.getPipelineCache() : VK_NULL_HANDLE, pipelineCreateInfo, buffer) != VK_SUCCESS) {
+                device_in.createGraphicsPipelines(cache == null ? null : cache.getPipelineCache(), pipelineCreateInfo, buffer);
+                if (device_in.didErrorOccur()) {
                     Log.print(Log.Severity.ERROR, "Vulkan: failed to create graphics pipeline");
                     throw new IllegalStateException("failed to create graphics pipeline");
                 }
             }
-            handle = new DeviceHandle(device_in,buffer.get(0));
+            handle = new DeviceHandle(device_in,buffer[0]);
             layout = builder.layout;
         }
     }
@@ -75,8 +76,8 @@ public class Pipeline extends LibCleanable {
      *
      * @return The handle of the Vulkan pipeline.
      */
-    public long getPipeline() {
-        return handle.handle();
+    public DeviceHandle getPipeline() {
+        return handle;
     }
 
 
@@ -95,11 +96,12 @@ public class Pipeline extends LibCleanable {
     @Override
     public final void free() {
         layout.free();
-        handle.device().destroyPipeline(handle.handle());
+        handle.device().destroyPipeline(handle);
     }
 
     /**
      * Builder class for configuring a Vulkan graphics or compute pipeline.
+     * <strong>Note:</strong> if something is missing to configure the pipeline, please report it.
      */
     public static class PipelineBuilder extends LibCleanable {
         private final VkPipelineInputAssemblyStateCreateInfo input_assembly_state = VkPipelineInputAssemblyStateCreateInfo.calloc().sType$Default();
@@ -123,11 +125,22 @@ public class Pipeline extends LibCleanable {
          * @param layout_in        The pipeline layout associated with the pipeline.
          * @param render_pass_in   The render pass associated with the pipeline.
          */
-        public PipelineBuilder(@Nonnull Shader[] shader_stages_in, @Nonnull PipelineLayout layout_in, @Nonnull RenderPass render_pass_in) {
+        public PipelineBuilder(@Nonnull Shader[] shader_stages_in, @Nonnull PipelineLayout layout_in, @Nonnull RenderPass render_pass_in,Boolean will_define_dynamic_state) {
             super();
             shader_stages = shader_stages_in;
             layout = layout_in;
             render_pass = render_pass_in;
+            setPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+            setPolygonMode(VK_POLYGON_MODE_FILL);
+            setCullMode(VK_CULL_MODE_NONE);
+            setFrontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE);
+            setLineWidth(1.0f);
+            if (will_define_dynamic_state) {
+                setViewport(null, 1);
+                setScissor(null, 1);
+            }
+            setDepthCompareOp(VK_COMPARE_OP_ALWAYS);
+            setSampleCount(VK_SAMPLE_COUNT_1_BIT);
         }
 
         /**
@@ -403,7 +416,7 @@ public class Pipeline extends LibCleanable {
             int index = 0;
             for (var shaders : shader_stages) {
                 var temp = buffer.get(index);
-                temp.sType$Default().pName(entry_name).stage(shaders.getStage().getValue()).module(shaders.getShader());
+                temp.sType$Default().pName(entry_name).stage(shaders.getStage().getValue()).module(shaders.getShader().handle());
                 buffer.put(index, temp);
                 index++;
             }
@@ -419,8 +432,8 @@ public class Pipeline extends LibCleanable {
         protected VkGraphicsPipelineCreateInfo.Buffer buildGraphicsPipeline(@Nonnull MemoryStack stack) {
             VkPipelineShaderStageCreateInfo.Buffer shaders = getShaderInfo(entry_name);
             //Fixme: this leaks memory VkPipelineShaderStageCreateInfo.Buffer
-            return VkGraphicsPipelineCreateInfo.calloc(1, stack).sType$Default().layout(layout.getLayout())
-                    .renderPass(render_pass.getRenderPass()).pVertexInputState(vertex_input_state)
+            return VkGraphicsPipelineCreateInfo.calloc(1, stack).sType$Default().layout(layout.getLayout().handle())
+                    .renderPass(render_pass.getRenderPass().handle()).pVertexInputState(vertex_input_state)
                     .pInputAssemblyState(input_assembly_state).pRasterizationState(rasterization_state)
                     .pColorBlendState(color_blend_state).pMultisampleState(multi_sample_state).pViewportState(viewport_state)
                     .pDepthStencilState(depth_stencil_state).pStages(shaders).pDynamicState(dynamic_state);
@@ -435,7 +448,7 @@ public class Pipeline extends LibCleanable {
         protected VkComputePipelineCreateInfo.Buffer buildComputePipeline(@Nonnull MemoryStack stack) {
             VkPipelineShaderStageCreateInfo.Buffer shaders = getShaderInfo(entry_name);
             //Fixme: this leaks memory
-            return VkComputePipelineCreateInfo.calloc(1, stack).sType$Default().layout(layout.getLayout()).stage(shaders.get(0)).basePipelineIndex(-1);
+            return VkComputePipelineCreateInfo.calloc(1, stack).sType$Default().layout(layout.getLayout().handle()).stage(shaders.get(0)).basePipelineIndex(-1);
         }
 
         /**

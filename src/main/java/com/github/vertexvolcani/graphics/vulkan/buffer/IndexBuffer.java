@@ -5,10 +5,10 @@ package com.github.vertexvolcani.graphics.vulkan.buffer;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+
 import com.github.vertexvolcani.graphics.vulkan.VmaAllocator;
 
 import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 /**
  * A class representing a Vulkan Index buffer managed by Vulkan Memory Allocator (VMA).
  * @author Luke Shore

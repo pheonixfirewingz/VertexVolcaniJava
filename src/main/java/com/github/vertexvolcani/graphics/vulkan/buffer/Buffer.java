@@ -138,7 +138,7 @@ public class Buffer extends LibCleanable {
     protected long getMemorySize() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkMemoryRequirements memory_requirements = VkMemoryRequirements.calloc(stack);
-            handle.device().getBufferMemoryRequirements(handle.handle(), memory_requirements);
+            handle.device().getBufferMemoryRequirements(handle, memory_requirements);
             return memory_requirements.size();
         }
     }
@@ -156,15 +156,15 @@ public class Buffer extends LibCleanable {
      * returns the buffer handle
      * @return VkBuffer handle of the vulkan object
      */
-    public long getBuffer() {
-        return handle.handle();
+    public DeviceHandle getBuffer() {
+        return handle;
     }
     /**
      * Cleans up resources associated with the buffer.
      */
     @Override
     public final void free() {
-        handle.device().deviceWaitIdle();
+        handle.device().waitIdle();
         vmaDestroyBuffer(allocator.getVmaAllocator(), handle.handle(), allocation);
     }
 }

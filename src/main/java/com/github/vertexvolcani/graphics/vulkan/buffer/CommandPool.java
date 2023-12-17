@@ -5,14 +5,12 @@ package com.github.vertexvolcani.graphics.vulkan.buffer;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandPoolCreateInfo;
-
-import java.nio.LongBuffer;
 
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -35,15 +33,13 @@ public class CommandPool extends LibCleanable {
      * @param reset_able          Is command pool reset-able.
      */
     public CommandPool(Device device_in, int queue_node_index, boolean reset_able) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            LongBuffer buffer = stack.callocLong(1);
-            VkCommandPoolCreateInfo cmdPoolInfo = VkCommandPoolCreateInfo.calloc(stack)
-                    .sType$Default().queueFamilyIndex(queue_node_index).flags(reset_able ? VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT:0);
-            if (device_in.createCommandPool(cmdPoolInfo, buffer) != VK_SUCCESS) {
+        try (VkCommandPoolCreateInfo.Buffer cmdPoolInfo = VkCommandPoolCreateInfo.calloc(1)) {
+            cmdPoolInfo.sType$Default().queueFamilyIndex(queue_node_index).flags(reset_able ? VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT:0);
+            handle = device_in.createCommandPool(cmdPoolInfo.get(0));
+            if (device_in.getResult() != VK_SUCCESS) {
                 Log.print(Log.Severity.ERROR, "Vulkan: failed to create command pool");
                 throw new IllegalStateException("failed to create command pool");
             }
-            handle = new DeviceHandle(device_in,buffer.get(0));
         }
     }
 
@@ -52,8 +48,8 @@ public class CommandPool extends LibCleanable {
      *
      * @return The Vulkan handle of the command pool.
      */
-    public long getCommandPool() {
-        return handle.handle();
+    public DeviceHandle getCommandPool() {
+        return handle;
     }
 
     /**
@@ -71,7 +67,7 @@ public class CommandPool extends LibCleanable {
      */
     @Override
     public final void free() {
-        handle.device().deviceWaitIdle();
-        handle.device().destroyCommandPool(handle.handle());
+        handle.device().waitIdle();
+        handle.device().destroyCommandPool(handle);
     }
 }

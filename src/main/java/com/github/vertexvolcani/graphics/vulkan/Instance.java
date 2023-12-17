@@ -212,21 +212,22 @@ public class Instance extends LibCleanable {
 
             extension_names.flip();
             VkInstanceCreateInfo pCreateInfo = VkInstanceCreateInfo.calloc(stack).sType$Default()
-                    .pNext(NULL).flags(0).pApplicationInfo(app).ppEnabledLayerNames(requiredLayers)
-                    .ppEnabledExtensionNames(extension_names);
-            extension_names.clear();
+                    .pNext(NULL).flags(0).pApplicationInfo(app);
+                    if(requiredLayers != null) {
+                        pCreateInfo.ppEnabledLayerNames(requiredLayers);
+                    }
+                    pCreateInfo.ppEnabledExtensionNames(extension_names);
+
 
             // Add debug messenger if debug mode is enabled
             VkDebugUtilsMessengerCreateInfoEXT dbgCreateInfo;
             if (debug) {
                 dbgCreateInfo = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack)
-                        .sType$Default().pNext(NULL).flags(0).messageSeverity(
-                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-                        )
-                        .messageType(
-                                VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
-                        ).pfnUserCallback(dbgFunc).pUserData(NULL);
+                        .sType$Default().pNext(NULL).flags(0).messageSeverity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+                        .messageType(VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+                        .pfnUserCallback(dbgFunc).pUserData(NULL);
 
                 pCreateInfo.pNext(dbgCreateInfo.address());
             }
@@ -236,6 +237,7 @@ public class Instance extends LibCleanable {
                 throw new RuntimeException("could not make Vulkan instance");
             }
             instance = new VkInstance(handle.get(0), pCreateInfo);
+            extension_names.clear();
             // Free allocated memory
             MemoryUtil.memFree(extension_names);
         }

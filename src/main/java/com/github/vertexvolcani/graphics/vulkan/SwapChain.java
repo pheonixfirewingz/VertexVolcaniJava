@@ -165,15 +165,19 @@ public class SwapChain extends LibCleanable {
 
     @NativeType("VkResult")
     public int acquireNextImage(@Nullable Fence fence, @Nonnull Semaphore semaphore, @NativeType("uint32_t const *") @Nonnull java.nio.IntBuffer pImageIndex) {
-        return vkAcquireNextImageKHR(device.getDevice(), handle, Long.MAX_VALUE, semaphore.getSemaphore(), fence != null ? fence.getFence() : VK_NULL_HANDLE, pImageIndex);
+        return vkAcquireNextImageKHR(device.getDevice(), handle, Long.MAX_VALUE, semaphore.getSemaphore().handle(), fence != null ? fence.getFence().handle() : VK_NULL_HANDLE, pImageIndex);
     }
 
     @NativeType("VkResult")
-    public int queuePresent(@Nonnull VkQueue queue, @Nonnull Semaphore semaphore, @NativeType("uint32_t const *") @Nonnull IntBuffer pImageIndex) {
+    public int queuePresent(@Nonnull VkQueue queue, @Nonnull Semaphore[] pWaitSemaphores, @NativeType("uint32_t const *") @Nonnull IntBuffer pImageIndex) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer buffer_swap = stack.callocLong(1);
+            LongBuffer semaphore = stack.callocLong(pWaitSemaphores.length);
+            for (int i = 0; i < pWaitSemaphores.length; i++) {
+                semaphore.put(i, pWaitSemaphores[i].getSemaphore().handle());
+            }
             buffer_swap.put(0, handle);
-            VkPresentInfoKHR presentInfo = VkPresentInfoKHR.calloc(stack).sType$Default().pWaitSemaphores(semaphore.getSemaphorePtr())
+            VkPresentInfoKHR presentInfo = VkPresentInfoKHR.calloc(stack).sType$Default().pWaitSemaphores(semaphore)
                     .swapchainCount(1).pSwapchains(buffer_swap).pImageIndices(pImageIndex);
             return vkQueuePresentKHR(queue, presentInfo);
         }
@@ -181,7 +185,7 @@ public class SwapChain extends LibCleanable {
 
     @Override
     public final void free() {
-        device.deviceWaitIdle();
+        device.waitIdle();
         destroy(handle);
         Log.print(Log.Severity.DEBUG, "Vulkan: done freeing swap chain");
     }

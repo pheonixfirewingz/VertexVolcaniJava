@@ -5,9 +5,9 @@ package com.github.vertexvolcani.graphics.vulkan.buffer;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+
 import com.github.vertexvolcani.graphics.vulkan.VmaAllocator;
 
-import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 /* @author Luke Shore
  * @version 1.0

@@ -6,6 +6,7 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  * Copyright Luke Shore (c) 2023, 2024
  */
 import com.github.vertexvolcani.graphics.vulkan.Device;
+import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -24,11 +25,19 @@ public class Queue {
         queue = device.getDeviceQueue(family,index);
     }
 
-    public int submit(PointerBuffer command_buffers, IntBuffer wait_dst_stage_mask, LongBuffer wait_semaphores, LongBuffer signal_semaphores, @Nullable Fence fence){
+    public int submit(PointerBuffer command_buffers, IntBuffer wait_dst_stage_mask, @Nonnull Semaphore[] wait_semaphores, Semaphore[] signal_semaphores, @Nullable Fence fence){
         try(MemoryStack stack = MemoryStack.stackPush()) {
-        VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack).sType$Default().waitSemaphoreCount(wait_semaphores.remaining()).pWaitSemaphores(wait_semaphores)
-                .pWaitDstStageMask(wait_dst_stage_mask).pCommandBuffers(command_buffers).pSignalSemaphores(signal_semaphores);
-        return vkQueueSubmit(queue, submitInfo,fence != null?fence.getFence():VK_NULL_HANDLE);
+            LongBuffer wait_semaphores_buffer = stack.mallocLong(wait_semaphores.length);
+            LongBuffer signal_semaphores_buffer = stack.mallocLong(signal_semaphores.length);
+            for (int i = 0; i < wait_semaphores.length; i++) {
+                wait_semaphores_buffer.put(i, wait_semaphores[i].getSemaphore().handle());
+            }
+            for (int i = 0; i < signal_semaphores.length; i++) {
+                signal_semaphores_buffer.put(i, signal_semaphores[i].getSemaphore().handle());
+            }
+        VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack).sType$Default().waitSemaphoreCount(wait_semaphores.length).pWaitSemaphores(wait_semaphores_buffer)
+                .pWaitDstStageMask(wait_dst_stage_mask).pCommandBuffers(command_buffers).pSignalSemaphores(signal_semaphores_buffer);
+        return vkQueueSubmit(queue, submitInfo,fence != null?fence.getFence().handle():VK_NULL_HANDLE);
         }
     }
 

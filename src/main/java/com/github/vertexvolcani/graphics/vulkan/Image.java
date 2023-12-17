@@ -41,7 +41,7 @@ public class Image extends LibCleanable {
     /**
      * The handle to the Vulkan image view.
      */
-    private final long view;
+    private final DeviceHandle view;
     /**
      * The handle to the memory allocation associated with the image.
      */
@@ -82,11 +82,11 @@ public class Image extends LibCleanable {
             VkImageViewCreateInfo view_create_info = VkImageViewCreateInfo.calloc(stack).sType$Default().image(handle.handle()).flags(0);
             view_create_info.viewType(image_information.view_type).format(image_information.format).subresourceRange(image_information.subresource_range);
 
-            if (handle.device().createImageView(view_create_info, pBuffer) != VK_SUCCESS) {
+            view = handle.device().createImageView(view_create_info);
+            if (handle.device().didErrorOccur()) {
                 Log.print(Log.Severity.ERROR, "Vulkan: Failed to create Vulkan image view.");
                 throw new RuntimeException("Failed to create Vulkan image view.");
             }
-            view = pBuffer.get(0);
             allocation = pAllocation.get(0);
         }
     }
@@ -104,11 +104,11 @@ public class Image extends LibCleanable {
             handle = new DeviceHandle(allocator.getDev(), VK_NULL_HANDLE);
             VkImageViewCreateInfo view_create_info = VkImageViewCreateInfo.calloc(stack).sType$Default().image(image.getImage()).flags(0);
             view_create_info.viewType(image_information.view_type).format(image_information.format).subresourceRange(image_information.subresource_range);
-            if (handle.device().createImageView(view_create_info, pBuffer) != VK_SUCCESS) {
+            view = handle.device().createImageView(view_create_info);
+            if (handle.device().didErrorOccur()) {
                 Log.print(Log.Severity.ERROR, "Vulkan: Failed to create Vulkan image view.");
                 throw new RuntimeException("Failed to create Vulkan image view.");
             }
-            view = pBuffer.get(0);
             allocation = VK_NULL_HANDLE;
         }
     }
@@ -126,11 +126,11 @@ public class Image extends LibCleanable {
             handle = new DeviceHandle(allocator.getDev(), VK_NULL_HANDLE);
             VkImageViewCreateInfo view_create_info = VkImageViewCreateInfo.calloc(stack).sType$Default().image(image).flags(0);
             view_create_info.viewType(image_information.view_type).format(image_information.format).subresourceRange(image_information.subresource_range);
-            if (handle.device().createImageView(view_create_info, pBuffer) != VK_SUCCESS) {
+            view = handle.device().createImageView(view_create_info);
+            if (handle.device().didErrorOccur()) {
                 Log.print(Log.Severity.ERROR, "Vulkan: Failed to create Vulkan image view.");
                 throw new RuntimeException("Failed to create Vulkan image view.");
             }
-            view = pBuffer.get(0);
             allocation = VK_NULL_HANDLE;
         }
     }
@@ -199,7 +199,7 @@ public class Image extends LibCleanable {
     protected long getMemorySize() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkMemoryRequirements memory_requirements = VkMemoryRequirements.calloc(stack);
-            handle.device().getImageMemoryRequirements(handle.handle(), memory_requirements);
+            handle.device().getImageMemoryRequirements(handle, memory_requirements);
             return memory_requirements.size();
         }
     }
@@ -227,7 +227,7 @@ public class Image extends LibCleanable {
      *
      * @return VkImageView handle of the vulkan object
      */
-    public long getImageView() {
+    public DeviceHandle getImageView() {
         return view;
     }
 
@@ -236,7 +236,7 @@ public class Image extends LibCleanable {
      */
     @Override
     public final void free() {
-        handle.device().deviceWaitIdle();
+        handle.device().waitIdle();
         handle.device().destroyImageView(view);
         if (allocation != VK_NULL_HANDLE){
             vmaDestroyImage(allocator.getVmaAllocator(), handle.handle(), allocation);

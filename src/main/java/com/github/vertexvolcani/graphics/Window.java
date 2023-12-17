@@ -132,6 +132,6 @@ public final class Window extends LibCleanable {
     }
 
     public interface EventsCallback{
-        public void eventCallbacks(IEvent event);
+        void eventCallbacks(IEvent event);
     }
 }

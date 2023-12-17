@@ -5,14 +5,13 @@ package com.github.vertexvolcani.graphics.vulkan.buffer;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+
 import com.github.vertexvolcani.graphics.vulkan.Device;
-import com.github.vertexvolcani.graphics.vulkan.Image;
-import com.github.vertexvolcani.graphics.vulkan.pipeline.RenderPass;
-import com.github.vertexvolcani.graphics.vulkan.pipeline.Event;
-import com.github.vertexvolcani.graphics.vulkan.pipeline.Pipeline;
-import com.github.vertexvolcani.graphics.vulkan.pipeline.PipelineLayout;
+import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
+import com.github.vertexvolcani.graphics.vulkan.pipeline.ShaderType;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
+import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -25,15 +24,17 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
 import static org.lwjgl.vulkan.VK10.*;
+
 /**
  * Represents a Vulkan command buffer.
  * This class provides a convenient Java interface for Vulkan command buffer operations.
+ *
  * @author Luke Shore
  * @version 1.0
  * @since 2023-12-04
  */
 public class CommandBuffer extends LibCleanable {
-    private static final float[] colours = new float[]{0.392156863f,0.584313725f,0.929411765f,1.0f};
+    private static final float[] colours = new float[]{0.392156863f, 0.584313725f, 0.929411765f, 1.0f};
     /**
      * The Vulkan device associated with this command buffer.
      */
@@ -46,12 +47,13 @@ public class CommandBuffer extends LibCleanable {
      * The handle to the Vulkan command buffer.
      */
     private final VkCommandBuffer handle;
+
     /**
      * Constructs a new CommandBuffer.
      *
-     * @param device_in        The Vulkan device associated with the command buffer.
-     * @param command_pool_in  The command pool from which the command buffer is allocated.
-     * @param level            The command buffer level (primary or secondary).
+     * @param device_in       The Vulkan device associated with the command buffer.
+     * @param command_pool_in The command pool from which the command buffer is allocated.
+     * @param level           The command buffer level (primary or secondary).
      */
     public CommandBuffer(Device device_in, CommandPool command_pool_in, int level) {
         super();
@@ -60,12 +62,13 @@ public class CommandBuffer extends LibCleanable {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PointerBuffer buffer = stack.mallocPointer(1);
             VkCommandBufferAllocateInfo cmdBufAllocateInfo = VkCommandBufferAllocateInfo.calloc(stack).sType$Default()
-                    .commandPool(command_pool.getCommandPool()).level(level).commandBufferCount(1);
-            if(device.allocateCommandBuffers(cmdBufAllocateInfo, buffer) != VK_SUCCESS) {
-                Log.print(Log.Severity.ERROR,"Vulkan: could not create command buffer");
+                    .commandPool(command_pool.getCommandPool().handle()).level(level).commandBufferCount(1);
+            device.allocateCommandBuffers(cmdBufAllocateInfo, buffer);
+            if (device.didErrorOccur()) {
+                Log.print(Log.Severity.ERROR, "Vulkan: could not create command buffer");
                 throw new IllegalStateException("could not create command buffer");
             }
-            handle = new VkCommandBuffer(buffer.get(0),device.getDevice());
+            handle = new VkCommandBuffer(buffer.get(0), device.getDevice());
         }
     }
 
@@ -112,8 +115,8 @@ public class CommandBuffer extends LibCleanable {
      * @param pipelineBindPoint The bind point for the pipeline (e.g., VK_PIPELINE_BIND_POINT_GRAPHICS).
      * @param pipeline          The pipeline to bind.
      */
-    public void bindPipeline(@NativeType("VkPipelineBindPoint") int pipelineBindPoint, Pipeline pipeline) {
-        vkCmdBindPipeline(handle, pipelineBindPoint, pipeline.getPipeline());
+    public void bindPipeline(@NativeType("VkPipelineBindPoint") int pipelineBindPoint, DeviceHandle pipeline) {
+        vkCmdBindPipeline(handle, pipelineBindPoint, pipeline.handle());
     }
 
     /**
@@ -178,8 +181,8 @@ public class CommandBuffer extends LibCleanable {
     /**
      * Sets the stencil compare mask dynamically.
      *
-     * @param faceMask     A bitmask specifying which set of stencil compare masks to update.
-     * @param compareMask  The new value to use as the stencil compare mask.
+     * @param faceMask    A bitmask specifying which set of stencil compare masks to update.
+     * @param compareMask The new value to use as the stencil compare mask.
      */
     public void setStencilCompareMask(@NativeType("VkStencilFaceFlags") int faceMask, @NativeType("uint32_t") int compareMask) {
         vkCmdSetStencilCompareMask(handle, faceMask, compareMask);
@@ -225,8 +228,8 @@ public class CommandBuffer extends LibCleanable {
      * @param offset    The byte offset into the buffer.
      * @param indexType The type of indices in the buffer.
      */
-    public void bindIndexBuffer(Buffer buffer, @NativeType("VkDeviceSize") long offset, @NativeType("VkIndexType") int indexType) {
-        vkCmdBindIndexBuffer(handle, buffer.getBuffer(), offset, indexType);
+    public void bindIndexBuffer(DeviceHandle buffer, @NativeType("VkDeviceSize") long offset, @NativeType("VkIndexType") int indexType) {
+        vkCmdBindIndexBuffer(handle, buffer.handle(), offset, indexType);
     }
 
     /**
@@ -247,11 +250,11 @@ public class CommandBuffer extends LibCleanable {
      * @param buffer       The buffer to bind.
      * @param pOffset      The byte offset into the buffer.
      */
-    public void bindVertexBuffer(@NativeType("uint32_t") int firstBinding, Buffer buffer, @NativeType("VkDeviceSize const") long pOffset) {
-        try(MemoryStack stack = MemoryStack.stackPush()) {
+    public void bindVertexBuffer(@NativeType("uint32_t") int firstBinding, DeviceHandle buffer, @NativeType("VkDeviceSize const") long pOffset) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer pBuffers = stack.callocLong(1);
             LongBuffer pOffsets = stack.callocLong(1);
-            pBuffers.put(buffer.getBuffer());
+            pBuffers.put(buffer.handle());
             pOffsets.put(pOffset);
             bindVertexBuffers(firstBinding, pBuffers, pOffsets);
         }
@@ -290,8 +293,8 @@ public class CommandBuffer extends LibCleanable {
      * @param drawCount The number of draws.
      * @param stride    The byte stride between successive sets of draw parameters.
      */
-    public void drawIndirect(Buffer buffer, @NativeType("VkDeviceSize") long offset, @NativeType("uint32_t") int drawCount, @NativeType("uint32_t") int stride) {
-        vkCmdDrawIndirect(handle, buffer.getBuffer(), offset, drawCount, stride);
+    public void drawIndirect(DeviceHandle buffer, @NativeType("VkDeviceSize") long offset, @NativeType("uint32_t") int drawCount, @NativeType("uint32_t") int stride) {
+        vkCmdDrawIndirect(handle, buffer.handle(), offset, drawCount, stride);
     }
 
     /**
@@ -302,8 +305,8 @@ public class CommandBuffer extends LibCleanable {
      * @param drawCount The number of draws.
      * @param stride    The byte stride between successive sets of draw parameters.
      */
-    public void drawIndexedIndirect(Buffer buffer, @NativeType("VkDeviceSize") long offset, @NativeType("uint32_t") int drawCount, @NativeType("uint32_t") int stride) {
-        vkCmdDrawIndexedIndirect(handle, buffer.getBuffer(), offset, drawCount, stride);
+    public void drawIndexedIndirect(DeviceHandle buffer, @NativeType("VkDeviceSize") long offset, @NativeType("uint32_t") int drawCount, @NativeType("uint32_t") int stride) {
+        vkCmdDrawIndexedIndirect(handle, buffer.handle(), offset, drawCount, stride);
     }
 
     /**
@@ -323,8 +326,8 @@ public class CommandBuffer extends LibCleanable {
      * @param buffer The buffer containing dispatch parameters.
      * @param offset The byte offset into the buffer.
      */
-    public void dispatchIndirect(Buffer buffer, @NativeType("VkDeviceSize") long offset) {
-        vkCmdDispatchIndirect(handle, buffer.getBuffer(), offset);
+    public void dispatchIndirect(DeviceHandle buffer, @NativeType("VkDeviceSize") long offset) {
+        vkCmdDispatchIndirect(handle, buffer.handle(), offset);
     }
 
     /**
@@ -334,9 +337,10 @@ public class CommandBuffer extends LibCleanable {
      * @param dstBuffer The destination buffer.
      * @param pRegions  An array of regions to copy.
      */
-    public void copyBuffer(Buffer srcBuffer, Buffer dstBuffer, @NativeType("VkBufferCopy const *") VkBufferCopy.Buffer pRegions) {
-        vkCmdCopyBuffer(handle,srcBuffer.getBuffer(),dstBuffer.getBuffer(),pRegions);
+    public void copyBuffer(DeviceHandle srcBuffer, DeviceHandle dstBuffer, @NativeType("VkBufferCopy const *") VkBufferCopy.Buffer pRegions) {
+        vkCmdCopyBuffer(handle, srcBuffer.handle(), dstBuffer.handle(), pRegions);
     }
+
     /**
      * Copies the content of one image to another.
      *
@@ -346,8 +350,8 @@ public class CommandBuffer extends LibCleanable {
      * @param dstImageLayout The layout of the destination image.
      * @param pRegions       Buffer containing regions to copy within the images.
      */
-    public void copyImage(Image srcImage, @NativeType("VkImageLayout") int srcImageLayout, Image dstImage, @NativeType("VkImageLayout") int dstImageLayout, @NativeType("VkImageCopy const *") VkImageCopy.Buffer pRegions) {
-        vkCmdCopyImage(handle, srcImage.getImage(), srcImageLayout, dstImage.getImage(), dstImageLayout, pRegions);
+    public void copyImage(DeviceHandle srcImage, @NativeType("VkImageLayout") int srcImageLayout, DeviceHandle dstImage, @NativeType("VkImageLayout") int dstImageLayout, @NativeType("VkImageCopy const *") VkImageCopy.Buffer pRegions) {
+        vkCmdCopyImage(handle, srcImage.handle(), srcImageLayout, dstImage.handle(), dstImageLayout, pRegions);
     }
 
     /**
@@ -360,8 +364,8 @@ public class CommandBuffer extends LibCleanable {
      * @param pRegions       Buffer containing regions to blit within the images.
      * @param filter         The filtering algorithm for the blit.
      */
-    public void blitImage(Image srcImage, @NativeType("VkImageLayout") int srcImageLayout, Image dstImage, @NativeType("VkImageLayout") int dstImageLayout, @NativeType("VkImageBlit const *") VkImageBlit.Buffer pRegions, @NativeType("VkFilter") int filter) {
-        vkCmdBlitImage(handle, srcImage.getImage(), srcImageLayout, dstImage.getImage(), dstImageLayout, pRegions, filter);
+    public void blitImage(DeviceHandle srcImage, @NativeType("VkImageLayout") int srcImageLayout, DeviceHandle dstImage, @NativeType("VkImageLayout") int dstImageLayout, @NativeType("VkImageBlit const *") VkImageBlit.Buffer pRegions, @NativeType("VkFilter") int filter) {
+        vkCmdBlitImage(handle, srcImage.handle(), srcImageLayout, dstImage.handle(), dstImageLayout, pRegions, filter);
     }
 
     /**
@@ -372,8 +376,8 @@ public class CommandBuffer extends LibCleanable {
      * @param dstImageLayout The layout of the destination image.
      * @param pRegions       Buffer containing regions to copy within the buffer and image.
      */
-    public void copyBufferToImage(Buffer srcBuffer, Image dstImage, @NativeType("VkImageLayout") int dstImageLayout, @NativeType("VkBufferImageCopy const *") VkBufferImageCopy.Buffer pRegions) {
-        vkCmdCopyBufferToImage(handle, srcBuffer.getBuffer(), dstImage.getImage(), dstImageLayout, pRegions);
+    public void copyBufferToImage(DeviceHandle srcBuffer, DeviceHandle dstImage, @NativeType("VkImageLayout") int dstImageLayout, @NativeType("VkBufferImageCopy const *") VkBufferImageCopy.Buffer pRegions) {
+        vkCmdCopyBufferToImage(handle, srcBuffer.handle(), dstImage.handle(), dstImageLayout, pRegions);
     }
 
     /**
@@ -384,8 +388,8 @@ public class CommandBuffer extends LibCleanable {
      * @param dstBuffer      The destination buffer handle.
      * @param pRegions       Buffer containing regions to copy within the image and buffer.
      */
-    public void copyImageToBuffer(Image srcImage, @NativeType("VkImageLayout") int srcImageLayout,  Buffer dstBuffer, @NativeType("VkBufferImageCopy const *") VkBufferImageCopy.Buffer pRegions) {
-        vkCmdCopyImageToBuffer(handle, srcImage.getImage(), srcImageLayout, dstBuffer.getBuffer(), pRegions);
+    public void copyImageToBuffer(DeviceHandle srcImage, @NativeType("VkImageLayout") int srcImageLayout, DeviceHandle dstBuffer, @NativeType("VkBufferImageCopy const *") VkBufferImageCopy.Buffer pRegions) {
+        vkCmdCopyImageToBuffer(handle, srcImage.handle(), srcImageLayout, dstBuffer.handle(), pRegions);
     }
 
     /**
@@ -395,8 +399,8 @@ public class CommandBuffer extends LibCleanable {
      * @param dstOffset The offset within the destination buffer to start the update.
      * @param pData     The source data in the form of a ByteBuffer.
      */
-    public void updateBuffer(Buffer dstBuffer, @NativeType("VkDeviceSize") long dstOffset, @NativeType("void const *") ByteBuffer pData) {
-        vkCmdUpdateBuffer(handle, dstBuffer.getBuffer(), dstOffset, pData);
+    public void updateBuffer(DeviceHandle dstBuffer, @NativeType("VkDeviceSize") long dstOffset, @NativeType("void const *") ByteBuffer pData) {
+        vkCmdUpdateBuffer(handle, dstBuffer.handle(), dstOffset, pData);
     }
 
     /**
@@ -407,32 +411,32 @@ public class CommandBuffer extends LibCleanable {
      * @param size      The size of the region to fill.
      * @param data      The 32-bit data value to fill the region with.
      */
-    public void fillBuffer(Buffer dstBuffer, @NativeType("VkDeviceSize") long dstOffset, @NativeType("VkDeviceSize") long size, @NativeType("uint32_t") int data) {
-        vkCmdFillBuffer(handle, dstBuffer.getBuffer(), dstOffset, size, data);
+    public void fillBuffer(DeviceHandle dstBuffer, @NativeType("VkDeviceSize") long dstOffset, @NativeType("VkDeviceSize") long size, @NativeType("uint32_t") int data) {
+        vkCmdFillBuffer(handle, dstBuffer.handle(), dstOffset, size, data);
     }
 
     /**
      * Clears a color image with the specified clear color values.
      *
-     * @param image        The image handle.
-     * @param imageLayout  The layout of the image.
-     * @param pColor       Optional clear color values.
-     * @param pRanges      Buffer containing subresource ranges to clear within the image.
+     * @param image       The image handle.
+     * @param imageLayout The layout of the image.
+     * @param pColor      Optional clear color values.
+     * @param pRanges     Buffer containing subresource ranges to clear within the image.
      */
-    public void clearColorImage(Image image, @NativeType("VkImageLayout") int imageLayout, @Nullable @NativeType("VkClearColorValue const *") VkClearColorValue pColor, @NativeType("VkImageSubresourceRange const *") VkImageSubresourceRange.Buffer pRanges) {
-        vkCmdClearColorImage(handle, image.getImage(), imageLayout, pColor, pRanges);
+    public void clearColorImage(DeviceHandle image, @NativeType("VkImageLayout") int imageLayout, @Nullable @NativeType("VkClearColorValue const *") VkClearColorValue pColor, @NativeType("VkImageSubresourceRange const *") VkImageSubresourceRange.Buffer pRanges) {
+        vkCmdClearColorImage(handle, image.handle(), imageLayout, pColor, pRanges);
     }
 
     /**
      * Clears a depth-stencil image with the specified clear values.
      *
-     * @param image        The image handle.
-     * @param imageLayout  The layout of the image.
+     * @param image         The image handle.
+     * @param imageLayout   The layout of the image.
      * @param pDepthStencil Clear values for the depth and stencil aspects.
-     * @param pRanges      Buffer containing subresource ranges to clear within the image.
+     * @param pRanges       Buffer containing subresource ranges to clear within the image.
      */
-    public void clearDepthStencilImage(Image image, @NativeType("VkImageLayout") int imageLayout, @NativeType("VkClearDepthStencilValue const *") VkClearDepthStencilValue pDepthStencil, @NativeType("VkImageSubresourceRange const *") VkImageSubresourceRange.Buffer pRanges) {
-        vkCmdClearDepthStencilImage(handle, image.getImage(), imageLayout, pDepthStencil, pRanges);
+    public void clearDepthStencilImage(DeviceHandle image, @NativeType("VkImageLayout") int imageLayout, @NativeType("VkClearDepthStencilValue const *") VkClearDepthStencilValue pDepthStencil, @NativeType("VkImageSubresourceRange const *") VkImageSubresourceRange.Buffer pRanges) {
+        vkCmdClearDepthStencilImage(handle, image.handle(), imageLayout, pDepthStencil, pRanges);
     }
 
     /**
@@ -454,17 +458,18 @@ public class CommandBuffer extends LibCleanable {
      * @param dstImageLayout The layout of the destination image.
      * @param pRegions       Buffer containing regions to resolve within the images.
      */
-    public void resolveImage(Image srcImage, @NativeType("VkImageLayout") int srcImageLayout, Image dstImage, @NativeType("VkImageLayout") int dstImageLayout, @NativeType("VkImageResolve const *") VkImageResolve.Buffer pRegions) {
-        vkCmdResolveImage(handle, srcImage.getImage(), srcImageLayout, dstImage.getImage(), dstImageLayout, pRegions);
+    public void resolveImage(DeviceHandle srcImage, @NativeType("VkImageLayout") int srcImageLayout, DeviceHandle dstImage, @NativeType("VkImageLayout") int dstImageLayout, @NativeType("VkImageResolve const *") VkImageResolve.Buffer pRegions) {
+        vkCmdResolveImage(handle, srcImage.handle(), srcImageLayout, dstImage.handle(), dstImageLayout, pRegions);
     }
+
     /**
      * Sets an event in the command buffer.
      *
      * @param event     The event to be set.
      * @param stageMask The pipeline stage at which the event is signaled.
      */
-    public void setEvent(Event event, @NativeType("VkPipelineStageFlags") int stageMask) {
-        vkCmdSetEvent(handle, event.getEvent(), stageMask);
+    public void setEvent(DeviceHandle event, @NativeType("VkPipelineStageFlags") int stageMask) {
+        vkCmdSetEvent(handle, event.handle(), stageMask);
     }
 
     /**
@@ -473,8 +478,8 @@ public class CommandBuffer extends LibCleanable {
      * @param event     The event to be reset.
      * @param stageMask The pipeline stage at which the event is unsignaled.
      */
-    public void resetEvent(Event event, @NativeType("VkPipelineStageFlags") int stageMask) {
-        vkCmdResetEvent(handle, event.getEvent(), stageMask);
+    public void resetEvent(DeviceHandle event, @NativeType("VkPipelineStageFlags") int stageMask) {
+        vkCmdResetEvent(handle, event.handle(), stageMask);
     }
 
     /**
@@ -487,11 +492,11 @@ public class CommandBuffer extends LibCleanable {
      * @param pBufferMemoryBarriers Optional buffer memory barriers.
      * @param pImageMemoryBarriers  Optional image memory barriers.
      */
-    public void waitEvents(Event[] events, @NativeType("VkPipelineStageFlags") int srcStageMask, @NativeType("VkPipelineStageFlags") int dstStageMask, @Nullable @NativeType("VkMemoryBarrier const *") VkMemoryBarrier.Buffer pMemoryBarriers, @Nullable @NativeType("VkBufferMemoryBarrier const *") VkBufferMemoryBarrier.Buffer pBufferMemoryBarriers, @Nullable @NativeType("VkImageMemoryBarrier const *") VkImageMemoryBarrier.Buffer pImageMemoryBarriers) {
+    public void waitEvents(DeviceHandle[] events, @NativeType("VkPipelineStageFlags") int srcStageMask, @NativeType("VkPipelineStageFlags") int dstStageMask, @Nullable @NativeType("VkMemoryBarrier const *") VkMemoryBarrier.Buffer pMemoryBarriers, @Nullable @NativeType("VkBufferMemoryBarrier const *") VkBufferMemoryBarrier.Buffer pBufferMemoryBarriers, @Nullable @NativeType("VkImageMemoryBarrier const *") VkImageMemoryBarrier.Buffer pImageMemoryBarriers) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer pEvents = stack.callocLong(events.length);
             for (var e : events)
-                pEvents.put(e.getEvent());
+                pEvents.put(e.handle());
             vkCmdWaitEvents(handle, pEvents, srcStageMask, dstStageMask, pMemoryBarriers, pBufferMemoryBarriers, pImageMemoryBarriers);
         }
     }
@@ -556,29 +561,30 @@ public class CommandBuffer extends LibCleanable {
     /**
      * Copies the results of queries in a query pool to a buffer.
      *
-     * @param queryPool   The query pool handle.
-     * @param firstQuery  The index of the first query to copy.
-     * @param queryCount  The number of queries to copy.
-     * @param dstBuffer   The destination buffer.
-     * @param dstOffset   The offset into the destination buffer.
-     * @param stride      The stride between query results in the buffer.
-     * @param flags       Flags specifying the type of queries and how results are written.
+     * @param queryPool  The query pool handle.
+     * @param firstQuery The index of the first query to copy.
+     * @param queryCount The number of queries to copy.
+     * @param dstBuffer  The destination buffer.
+     * @param dstOffset  The offset into the destination buffer.
+     * @param stride     The stride between query results in the buffer.
+     * @param flags      Flags specifying the type of queries and how results are written.
      */
-    public void copyQueryPoolResults(@NativeType("VkQueryPool") long queryPool, @NativeType("uint32_t") int firstQuery, @NativeType("uint32_t") int queryCount, Buffer dstBuffer, @NativeType("VkDeviceSize") long dstOffset, @NativeType("VkDeviceSize") long stride, @NativeType("VkQueryResultFlags") int flags) {
-        vkCmdCopyQueryPoolResults(handle, queryPool, firstQuery, queryCount, dstBuffer.getBuffer(), dstOffset, stride, flags);
+    public void copyQueryPoolResults(@NativeType("VkQueryPool") long queryPool, @NativeType("uint32_t") int firstQuery, @NativeType("uint32_t") int queryCount, DeviceHandle dstBuffer, @NativeType("VkDeviceSize") long dstOffset, @NativeType("VkDeviceSize") long stride, @NativeType("VkQueryResultFlags") int flags) {
+        vkCmdCopyQueryPoolResults(handle, queryPool, firstQuery, queryCount, dstBuffer.handle(), dstOffset, stride, flags);
     }
 
     /**
      * Pushes constants to the command buffer.
      *
-     * @param layout    The pipeline layout.
-     * @param stageFlags The shader stage flags.
-     * @param offset     The offset within the push constant range.
-     * @param pValues    The values to push.
+     * @param layout  The pipeline layout.
+     * @param stage   The shader stage flags.
+     * @param offset  The offset within the push constant range.
+     * @param pValues The values to push.
      */
-    public void pushConstants(Pipeline layout, @NativeType("VkShaderStageFlags") int stageFlags, @NativeType("uint32_t") int offset, @NativeType("void const *") ByteBuffer pValues) {
-        vkCmdPushConstants(handle, layout.getLayout().getLayout(), stageFlags, offset, pValues);
+    public void pushConstants(@Nonnull DeviceHandle layout, ShaderType stage, int offset, @Nonnull float[] pValues) {
+        vkCmdPushConstants(handle, layout.handle(), stage.getValue(), offset,pValues);
     }
+
     /**
      * Advances to the next subpass in the current render pass.
      *
@@ -588,29 +594,29 @@ public class CommandBuffer extends LibCleanable {
         vkCmdNextSubpass(handle, contents);
     }
 
-    public void beginRenderPass(RenderPass renderPass, float[] colours,float depth, int stencil, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
-        try(MemoryStack stack = MemoryStack.stackPush()) {
+    public void beginRenderPass(DeviceHandle renderPass, float[] colours, float depth, int stencil, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
             VkRenderPassBeginInfo passBeginInfo = VkRenderPassBeginInfo.calloc(stack).sType$Default();
-            VkClearValue.Buffer clearValues = VkClearValue.malloc(1, stack)
+            VkClearValue.Buffer clearValues = VkClearValue.calloc(1, stack)
                     .color(c -> c.float32(stack.floats(colours[0], colours[1], colours[2], colours[3])));
             clearValues.depthStencil().depth(depth / 255.0f).stencil(stencil);
-            passBeginInfo.renderPass(renderPass.getRenderPass());
-            passBeginInfo.framebuffer(frameBuffer.getFrameBuffer());
+            passBeginInfo.renderPass(renderPass.handle());
+            passBeginInfo.framebuffer(frameBuffer.getFrameBuffer().handle());
             passBeginInfo.pClearValues(clearValues);
             passBeginInfo.clearValueCount(clearValues.remaining());
             VkRect2D area = passBeginInfo.renderArea();
-            area.set(offset,extent);
-            vkCmdBeginRenderPass(handle,passBeginInfo,contents);
+            area.set(offset, extent);
+            vkCmdBeginRenderPass(handle, passBeginInfo, contents);
         }
     }
 
-    public void beginRenderPass(RenderPass renderPass, float[] colours, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
-        beginRenderPass(renderPass,colours,100,1058379158,extent,offset,frameBuffer,contents);
+    public void beginRenderPass(DeviceHandle renderPass, float[] colours, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
+        beginRenderPass(renderPass, colours, 100, 1058379158, extent, offset, frameBuffer, contents);
     }
 
-    public void beginRenderPass(RenderPass renderPass, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
+    public void beginRenderPass(DeviceHandle renderPass, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
 
-        beginRenderPass(renderPass,colours,extent,offset,frameBuffer,contents);
+        beginRenderPass(renderPass, colours, extent, offset, frameBuffer, contents);
     }
 
     /**
@@ -633,6 +639,7 @@ public class CommandBuffer extends LibCleanable {
             vkCmdExecuteCommands(handle, pCommandBuffers);
         }
     }
+
     /**
      * Gets the underlying Vulkan command buffer handle.
      *
@@ -641,13 +648,14 @@ public class CommandBuffer extends LibCleanable {
     public VkCommandBuffer getCommandBuffer() {
         return handle;
     }
+
     /**
      * Cleans up resources associated with the command buffer.
      * This method should be called when the command buffer is no longer needed.
      */
     @Override
     public final void free() {
-        device.deviceWaitIdle();
+        device.waitIdle();
         device.freeCommandBuffers(command_pool.getCommandPool(), handle);
     }
 }

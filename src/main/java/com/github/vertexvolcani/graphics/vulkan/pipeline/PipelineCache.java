@@ -5,15 +5,13 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nonnull;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPipelineCacheCreateInfo;
-
-import java.nio.LongBuffer;
 
 import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 
@@ -38,14 +36,13 @@ public class PipelineCache extends LibCleanable {
      * @param device_in The Vulkan device associated with the pipeline cache.
      */
     public PipelineCache(@Nonnull Device device_in) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            LongBuffer buffer = stack.callocLong(1);
-            VkPipelineCacheCreateInfo pCreateInfo = VkPipelineCacheCreateInfo.calloc(stack).sType$Default();
-            if (device_in.createPipelineCache(pCreateInfo, buffer) != VK_SUCCESS) {
+        try(VkPipelineCacheCreateInfo.Buffer pCreateInfo = VkPipelineCacheCreateInfo.calloc(1)) {
+            pCreateInfo.sType$Default();
+            handle = device_in.createPipelineCache(pCreateInfo.get(0));
+            if (device_in.getResult() != VK_SUCCESS) {
                 Log.print(Log.Severity.ERROR, "Vulkan: failed to create pipeline cache");
                 throw new IllegalStateException("failed to create pipeline cache");
             }
-            handle = new DeviceHandle(device_in, buffer.get(0));
         }
     }
 
@@ -54,8 +51,8 @@ public class PipelineCache extends LibCleanable {
      *
      * @return The Vulkan handle of the pipeline cache.
      */
-    public long getPipelineCache() {
-        return handle.handle();
+    public DeviceHandle getPipelineCache() {
+        return handle;
     }
 
     /**
@@ -66,6 +63,6 @@ public class PipelineCache extends LibCleanable {
      */
     @Override
     public final void free() {
-        handle.device().destroyPipelineCache(handle.handle());
+        handle.device().destroyPipelineCache(handle);
     }
 }

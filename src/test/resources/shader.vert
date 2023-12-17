@@ -9,7 +9,7 @@ layout(push_constant) uniform PushConsts {
 
 void main(void) {
   // Transform the vertex position using the model, view, and projection matrices
-  vec4 worldPosition = mat4(1.0) * vec4(position, 1.0);
+  vec4 worldPosition = mat4(0.3) * vec4(position, 1.0);  // Scale matrix with a scaling factor of 0.3
   vec4 viewPosition = pushConsts.view * worldPosition;
   gl_Position = pushConsts.proj * viewPosition;
 }

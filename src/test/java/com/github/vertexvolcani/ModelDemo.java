@@ -21,10 +21,11 @@ import de.javagl.obj.ObjUtils;
 import org.joml.Matrix4f;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
 
 import java.io.InputStream;
-import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
@@ -35,7 +36,6 @@ import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class ModelDemo {
-
     private final Camera camera = new Camera();
     private Window window;
     private FrameBuffer[] frame_buffers;
@@ -69,6 +69,7 @@ public class ModelDemo {
     private Vertices createVertices(VmaAllocator allocator) throws Exception {
         Obj obj;
         try (InputStream file_data = Thread.currentThread().getContextClassLoader().getResourceAsStream("./model/sponza/sponza.obj")) {
+            assert file_data != null;
             obj = ObjReader.read(file_data);
             obj = ObjUtils.triangulate(obj);
             obj = ObjUtils.makeTexCoordsUnique(obj);
@@ -92,7 +93,7 @@ public class ModelDemo {
     private Pipeline createPipeline(Device device, RenderPass renderPass, Vertices vertices) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PipelineLayout.PushConstant[] pushConstant = new PipelineLayout.PushConstant[1];
-            pushConstant[0] = new PipelineLayout.PushConstant(ShaderType.VERTEX, 0, 16);
+            pushConstant[0] = new PipelineLayout.PushConstant(ShaderType.VERTEX, 0, Float.BYTES * ((4 * 4) * 2));
             PipelineLayout layout = new PipelineLayout(device, null, pushConstant);
             Shader[] shaders = new Shader[2];
             shaders[0] = new Shader(device, "shader.vert", ShaderType.VERTEX);
@@ -151,7 +152,9 @@ public class ModelDemo {
                 pushConstants.projection = window.getProjection();
                 pushConstants.view = camera.getViewMatrix();
 
-                //renderCommandBuffers[i].pushConstants(pipeline.getLayout().getLayout(), ShaderType.VERTEX, 0, pushConstants.toFloatBuffer(stack));
+                var data = pushConstants.toFloatBuffer();
+                renderCommandBuffers[i].pushConstants(pipeline.getLayout().getLayout(), ShaderType.VERTEX, 0, data);
+                MemoryUtil.memFree(data);
 
                 LongBuffer offsets = stack.callocLong(1);
                 offsets.put(0, 0L);
@@ -172,7 +175,6 @@ public class ModelDemo {
     }
 
     public void run() throws Exception {
-        System.out.print(new Matrix4f().identity().scale(0.5f).toString());
         try (MemoryStack stack = MemoryStack.stackPush()) {
             window = new Window(800, 600, "GLFW Vulkan Demo", (event) -> {
                 if (event.getID() == KeyEvent.ID) {
@@ -207,6 +209,15 @@ public class ModelDemo {
             builder.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).imageArrayLayers(1).presentMode(VK_PRESENT_MODE_FIFO_KHR).clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
 
             final SwapChain SwapChain = new SwapChain(device, surface, allocator, builder);
+
+            final Buffer uniform_buffer;
+            {
+                Matrix4f model = new Matrix4f().identity().scale(0.3f);
+                FloatBuffer modelBuffer = MemoryUtil.memCallocFloat(16);
+                modelBuffer = model.get(modelBuffer);
+                uniform_buffer = new UniformBuffer(allocator, (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU).load(modelBuffer);
+                MemoryUtil.memFree(modelBuffer);
+            }
             final class SwapChainHelper {
                 void recreate() {
                     SwapChain.recreate();
@@ -242,12 +253,6 @@ public class ModelDemo {
 
             pWaitDstStageMask.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-            final Buffer[] uniform_buffer = new Buffer[command_buffers.length];
-            for (int i = 0; i < uniform_buffer.length; ++i) {
-                //size of uniform class
-                uniform_buffer[i] = new UniformBuffer(allocator, (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU);
-            }
-
             while (!window.ShouldClose()) {
                 window.poll();
                 SwapChain.acquireNextImage(null, image_acquired, pImageIndex);
@@ -269,16 +274,14 @@ public class ModelDemo {
             for (var c : command_buffers) {
                 c.close();
             }
-            for (var u : uniform_buffer) {
-                u.close();
-            }
+            uniform_buffer.close();
             commandPool.close();
             renderPass.close();
             pipeline.close();
             vertices.buffer().close();
-            vertices.index_buffer().free();
-            vertices.attributeDescriptions().free();
-            vertices.bindingDescriptor().free();
+            vertices.index_buffer().close();
+            vertices.attributeDescriptions().close();
+            vertices.bindingDescriptor().close();
             SwapChain.close();
             surface.close();
             allocator.close();
@@ -291,24 +294,12 @@ public class ModelDemo {
     private static class PushConstants {
         Matrix4f view;
         Matrix4f projection;
-
-        public float[] toFloatBuffer(MemoryStack stack) {
-            float[] buffer = new float[32];
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4; j++) {
-                    buffer[i + j] = view.get(i, j);
-                }
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4; j++) {
-                    buffer[i + j + 15] = projection.get(i, j);
-                }
-            }
+        //crash fix help from thechubu, gudenau & hilligans on lwjgl discord
+        public FloatBuffer toFloatBuffer() {
+            FloatBuffer buffer = MemoryUtil.memCallocFloat(32);
+            buffer = view.get(buffer);
+            buffer = projection.get(16,buffer);
             return buffer;
         }
-    }
-
-    private static class UniformBufferData {
-        Matrix4f model;
     }
 }

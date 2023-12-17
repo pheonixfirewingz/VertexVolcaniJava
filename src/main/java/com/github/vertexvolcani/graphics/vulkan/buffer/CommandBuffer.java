@@ -581,7 +581,7 @@ public class CommandBuffer extends LibCleanable {
      * @param offset  The offset within the push constant range.
      * @param pValues The values to push.
      */
-    public void pushConstants(@Nonnull DeviceHandle layout, ShaderType stage, int offset, @Nonnull float[] pValues) {
+    public void pushConstants(@Nonnull DeviceHandle layout, ShaderType stage, int offset, @Nonnull FloatBuffer pValues) {
         vkCmdPushConstants(handle, layout.handle(), stage.getValue(), offset,pValues);
     }
 

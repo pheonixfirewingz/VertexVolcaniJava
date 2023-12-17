@@ -10,7 +10,6 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -24,7 +23,7 @@ import static org.lwjgl.vulkan.VK10.*;
 public class TriangleDemo {
     private FrameBuffer[] frame_buffers;
     private CommandBuffer[] command_buffers;
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         TriangleDemo demo = new TriangleDemo();
         demo.run();
     }
@@ -147,7 +146,7 @@ public class TriangleDemo {
         return renderCommandBuffers;
     }
 
-    public void run() throws IOException {
+    public void run() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             final Window window = new Window(800, 600, "GLFW Vulkan Demo", (event) -> {});
             // Create the Vulkan instance
@@ -227,8 +226,8 @@ public class TriangleDemo {
             renderPass.close();
             pipeline.close();
             vertices.buffer().close();
-            vertices.attributeDescriptions().free();
-            vertices.bindingDescriptor().free();
+            vertices.attributeDescriptions().close();
+            vertices.bindingDescriptor().close();
             SwapChain.close();
             surface.close();
             allocator.close();

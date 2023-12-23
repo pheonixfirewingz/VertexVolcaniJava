@@ -22,7 +22,7 @@ import static org.lwjgl.vulkan.VK10.VK_FENCE_CREATE_SIGNALED_BIT;
  * @version 1.0
  * @since 2023-11-30
  */
-public class Fence extends LibCleanable {
+public final class Fence extends LibCleanable {
     /**
      * The handle to the Vulkan fence object.
      */
@@ -50,6 +50,7 @@ public class Fence extends LibCleanable {
                 throw new IllegalStateException("could not create fence");
             }
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created fence");
     }
 
     /**
@@ -86,8 +87,9 @@ public class Fence extends LibCleanable {
      * Cleans up and destroys the Vulkan fence object when it is no longer needed.
      */
     @Override
-    public final void free() {
+    protected void free() {
         handle.device().waitIdle();
         handle.device().destroyFence(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: done freeing fence");
     }
 }

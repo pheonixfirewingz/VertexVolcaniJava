@@ -11,6 +11,7 @@ import com.github.vertexvolcani.graphics.events.KeyEvent;
 import com.github.vertexvolcani.graphics.vulkan.*;
 import com.github.vertexvolcani.graphics.vulkan.buffer.*;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.*;
+import com.github.vertexvolcani.graphics.vulkan.pipeline.descriptors.*;
 import com.github.vertexvolcani.util.Camera;
 import com.github.vertexvolcani.util.Log;
 import com.github.vertexvolcani.util.Vertices;
@@ -66,6 +67,13 @@ public class ModelDemo {
         }
     }
 
+    private DescriptorLayout createDescriptorLayout(Device device) {
+        LayoutBinding[] bindings = new LayoutBinding[]{
+                new LayoutBinding(0, 1, DescriptorType.UNIFORM_BUFFER, ShaderType.VERTEX,null),
+        };
+        return new DescriptorLayout(device, bindings, 0);
+    }
+
     private Vertices createVertices(VmaAllocator allocator) throws Exception {
         Obj obj;
         try (InputStream file_data = Thread.currentThread().getContextClassLoader().getResourceAsStream("./model/sponza/sponza.obj")) {
@@ -78,8 +86,8 @@ public class ModelDemo {
 
         }
         IntBuffer index = ObjData.getFaceVertexIndices(obj, 4);
-        Buffer buffer = new VertexBuffer(allocator, ObjData.getTotalNumFaceVertices(obj) * 3L, false, VmaMemoryUsage.CPU_TO_GPU).load(ObjData.getVertices(obj));
-        Buffer index_buffer = new IndexBuffer(allocator, index.remaining(), false, VmaMemoryUsage.CPU_TO_GPU).load(index);
+        Buffer buffer = new VertexBuffer(allocator, ObjData.getTotalNumFaceVertices(obj) * 3L, false, VmaMemoryUsage.CPU_TO_GPU).write(ObjData.getVertices(obj));
+        Buffer index_buffer = new IndexBuffer(allocator, index.remaining(), false, VmaMemoryUsage.CPU_TO_GPU).write(index);
 
         VkVertexInputBindingDescription.Buffer bindingDescriptor = VkVertexInputBindingDescription.calloc(1);
         bindingDescriptor.binding(0).stride(3 * Float.BYTES).inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
@@ -90,11 +98,11 @@ public class ModelDemo {
         return new Vertices(buffer, index_buffer, bindingDescriptor, attributeDescriptions);
     }
 
-    private Pipeline createPipeline(Device device, RenderPass renderPass, Vertices vertices) {
+    private Pipeline createPipeline(Device device, RenderPass renderPass, Vertices vertices, DescriptorLayout descriptorLayout) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PipelineLayout.PushConstant[] pushConstant = new PipelineLayout.PushConstant[1];
             pushConstant[0] = new PipelineLayout.PushConstant(ShaderType.VERTEX, 0, Float.BYTES * ((4 * 4) * 2));
-            PipelineLayout layout = new PipelineLayout(device, null, pushConstant);
+            PipelineLayout layout = new PipelineLayout(device, new DescriptorLayout[]{descriptorLayout}, pushConstant);
             Shader[] shaders = new Shader[2];
             shaders[0] = new Shader(device, "shader.vert", ShaderType.VERTEX);
             shaders[1] = new Shader(device, "shader.frag", ShaderType.FRAGMENT);
@@ -117,7 +125,7 @@ public class ModelDemo {
         }
     }
 
-    private CommandBuffer[] createCommandBuffers(Device device, Surface surface, CommandPool commandPool, RenderPass renderPass, Pipeline pipeline, Vertices buffer) {
+    private CommandBuffer[] createCommandBuffers(Device device, Surface surface, CommandPool commandPool, RenderPass renderPass, Pipeline pipeline, Vertices buffer, DescriptorSets[] descriptorSets) {
         CommandBuffer[] renderCommandBuffers = new CommandBuffer[frame_buffers.length];
         try (MemoryStack stack = MemoryStack.stackPush()) {
             for (int i = 0; i < frame_buffers.length; i++) {
@@ -134,7 +142,7 @@ public class ModelDemo {
                     throw new IllegalStateException("Failed to begin render command buffer");
                 }
 
-                renderCommandBuffers[i].beginRenderPass(renderPass.getRenderPass(), extent, offset, frame_buffers[i], VK_SUBPASS_CONTENTS_INLINE);
+                renderCommandBuffers[i].beginRenderPass(renderPass, extent, offset, frame_buffers[i], VK_SUBPASS_CONTENTS_INLINE);
 
                 VkExtent2D size = surface.getSurfaceSize();
                 VkViewport.Buffer viewport = VkViewport.calloc(1, stack).height(size.height()).width(size.width()).minDepth(0.0f).maxDepth(1.0f);
@@ -147,13 +155,22 @@ public class ModelDemo {
                 renderCommandBuffers[i].setScissor(0, scissor);
 
                 renderCommandBuffers[i].bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipeline());
+                /*VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1);
+                bufferInfo.buffer(uniformBuffer.getBuffer().handle());
+                bufferInfo.offset(0);
+                bufferInfo.range((Float.BYTES * 16));
+                descriptorSets[i].writeBuffer(0, 0, 0, DescriptorType.UNIFORM_BUFFER, bufferInfo);
+                bufferInfo.free();*/
+                LongBuffer pDescriptorSets = stack.callocLong(1);
+                pDescriptorSets.put(0, descriptorSets[i].getHandle(0));
+                renderCommandBuffers[i].bindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getLayout(), 0, pDescriptorSets, null);
 
                 PushConstants pushConstants = new PushConstants();
                 pushConstants.projection = window.getProjection();
                 pushConstants.view = camera.getViewMatrix();
 
                 var data = pushConstants.toFloatBuffer();
-                renderCommandBuffers[i].pushConstants(pipeline.getLayout().getLayout(), ShaderType.VERTEX, 0, data);
+                renderCommandBuffers[i].pushConstants(pipeline.getLayout(), ShaderType.VERTEX, 0, data);
                 MemoryUtil.memFree(data);
 
                 LongBuffer offsets = stack.callocLong(1);
@@ -162,7 +179,8 @@ public class ModelDemo {
                 pBuffers.put(0, buffer.buffer().getBuffer().handle());
                 renderCommandBuffers[i].bindVertexBuffers(0, pBuffers, offsets);
                 renderCommandBuffers[i].bindIndexBuffer(buffer.index_buffer().getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-                renderCommandBuffers[i].drawIndexed((int) buffer.index_buffer().getSize(), 1, 0, 0, 0);
+                // this is done like this due to the way buffer size is stored
+                renderCommandBuffers[i].drawIndexed((int) buffer.index_buffer().getSize() / 4, 1, 0, 0, 0);
                 renderCommandBuffers[i].endRenderPass();
 
                 if (renderCommandBuffers[i].end() != VK_SUCCESS) {
@@ -200,13 +218,25 @@ public class ModelDemo {
             final VmaAllocator allocator = new VmaAllocator(instance, device);
             final Surface surface = new Surface(window, instance, device);
             // Create static Vulkan resources
+            DescriptorPoolSize [] descriptorPoolSizes = {
+                    new DescriptorPoolSize(DescriptorType.UNIFORM_BUFFER, 3),
+            };
+
+            final DescriptorPool descriptorPool = new DescriptorPool(device, descriptorPoolSizes, 4,0);
+            final DescriptorLayout descriptorLayout = createDescriptorLayout(device);
+            final DescriptorSets[] descriptorSets = new DescriptorSets[3];
+            for (int i = 0; i < 3; i++) {
+                descriptorSets[i] = new DescriptorSets(device, descriptorPool, new DescriptorLayout[]{descriptorLayout});
+            }
             final CommandPool commandPool = new CommandPool(device, device.getGraphicsIndex(), true);
             final Queue queue = new Queue(device, device.getGraphicsIndex(), 0);
             final RenderPass renderPass = createRenderPass(device, surface);
             final Vertices vertices = createVertices(allocator);
-            final Pipeline pipeline = createPipeline(device, renderPass, vertices);
+            final Pipeline pipeline = createPipeline(device, renderPass, vertices, descriptorLayout);
             SwapChain.SwapChainBuilder builder = new SwapChain.SwapChainBuilder();
-            builder.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).imageArrayLayers(1).presentMode(VK_PRESENT_MODE_FIFO_KHR).clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
+            builder.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+                    .imageArrayLayers(1).presentMode(VK_PRESENT_MODE_FIFO_KHR)
+                    .clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
 
             final SwapChain SwapChain = new SwapChain(device, surface, allocator, builder);
 
@@ -215,8 +245,16 @@ public class ModelDemo {
                 Matrix4f model = new Matrix4f().identity().scale(0.3f);
                 FloatBuffer modelBuffer = MemoryUtil.memCallocFloat(16);
                 modelBuffer = model.get(modelBuffer);
-                uniform_buffer = new UniformBuffer(allocator, (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU).load(modelBuffer);
+                uniform_buffer = new UniformBuffer(allocator, (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU).write(modelBuffer);
                 MemoryUtil.memFree(modelBuffer);
+                for (int i = 0; i < 3; i++) {
+                    VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1);
+                    bufferInfo.buffer(uniform_buffer.getBuffer().handle());
+                    bufferInfo.offset(0);
+                    bufferInfo.range((Float.BYTES * 16));
+                    descriptorSets[i].writeBuffer(0, 0, 0, false, bufferInfo);
+                    bufferInfo.free();
+                }
             }
             final class SwapChainHelper {
                 void recreate() {
@@ -240,7 +278,7 @@ public class ModelDemo {
                         command_buffers = null;
                         commandPool.reset(0);
                     }
-                    command_buffers = createCommandBuffers(device, surface, commandPool, renderPass, pipeline, vertices);
+                    command_buffers = createCommandBuffers(device, surface, commandPool, renderPass, pipeline, vertices, descriptorSets);
                 }
             }
             final SwapChainHelper swap_chain_helper = new SwapChainHelper();
@@ -271,11 +309,13 @@ public class ModelDemo {
             for (var f : frame_buffers) {
                 f.close();
             }
-            for (var c : command_buffers) {
-                c.close();
-            }
             uniform_buffer.close();
             commandPool.close();
+            for (var d : descriptorSets) {
+                d.close();
+            }
+            descriptorLayout.close();
+            descriptorPool.close();
             renderPass.close();
             pipeline.close();
             vertices.buffer().close();

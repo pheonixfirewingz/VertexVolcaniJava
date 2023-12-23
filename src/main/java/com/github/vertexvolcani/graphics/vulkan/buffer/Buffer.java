@@ -79,6 +79,7 @@ public class Buffer extends LibCleanable {
             handle = new DeviceHandle(allocator.getDev(),pBuffer.get(0));
             allocation = pAllocation.get(0);
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: Created buffer with VMA. Buffer size: " + size_in + " bytes");
     }
 
     /**
@@ -97,7 +98,7 @@ public class Buffer extends LibCleanable {
      * transfer data to buffer
      * @param src this is the pointer to the data to be copied
      */
-    public Buffer load(ByteBuffer src) {
+    public Buffer write(ByteBuffer src) {
         final var buffer = map();
         MemoryUtil.memCopy(MemoryUtil.memAddress(src),MemoryUtil.memAddress(buffer),src.remaining());
         unmap();
@@ -107,7 +108,7 @@ public class Buffer extends LibCleanable {
      * transfer data to buffer
      * @param src this is the pointer to the data to be copied
      */
-    public Buffer load(FloatBuffer src) {
+    public Buffer write(FloatBuffer src) {
         final var buffer = map();
         MemoryUtil.memCopy(MemoryUtil.memAddress(src),MemoryUtil.memAddress(buffer), (long) src.remaining() * Float.BYTES);
         unmap();
@@ -117,7 +118,7 @@ public class Buffer extends LibCleanable {
      * transfer data to buffer
      * @param src this is the pointer to the data to be copied
      */
-    public Buffer load(IntBuffer src) {
+    public Buffer write(IntBuffer src) {
         final var buffer = map();
         MemoryUtil.memCopy(MemoryUtil.memAddress(src),MemoryUtil.memAddress(buffer), (long) src.remaining() * Integer.BYTES);
         unmap();
@@ -166,5 +167,6 @@ public class Buffer extends LibCleanable {
     public final void free() {
         handle.device().waitIdle();
         vmaDestroyBuffer(allocator.getVmaAllocator(), handle.handle(), allocation);
+        Log.print(Log.Severity.DEBUG, "Vulkan: Done freeing buffer");
     }
 }

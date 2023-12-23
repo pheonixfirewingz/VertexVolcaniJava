@@ -15,7 +15,7 @@ import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
  * @version 1.0
  * @since 2023-11-30
  */
-public class IndexBuffer extends Buffer{
+public final class IndexBuffer extends Buffer{
     /**
      * Constructs a new ABuffer instance.
      *

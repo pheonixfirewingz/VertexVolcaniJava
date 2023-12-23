@@ -8,6 +8,8 @@ package com.github.vertexvolcani.graphics.vulkan.buffer;
 
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
+import com.github.vertexvolcani.graphics.vulkan.pipeline.PipelineLayout;
+import com.github.vertexvolcani.graphics.vulkan.pipeline.RenderPass;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.ShaderType;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
@@ -33,7 +35,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @version 1.0
  * @since 2023-12-04
  */
-public class CommandBuffer extends LibCleanable {
+public final class CommandBuffer extends LibCleanable {
     private static final float[] colours = new float[]{0.392156863f, 0.584313725f, 0.929411765f, 1.0f};
     /**
      * The Vulkan device associated with this command buffer.
@@ -70,6 +72,7 @@ public class CommandBuffer extends LibCleanable {
             }
             handle = new VkCommandBuffer(buffer.get(0), device.getDevice());
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created command buffer");
     }
 
     /**
@@ -217,8 +220,8 @@ public class CommandBuffer extends LibCleanable {
      * @param pDescriptorSets   An array of descriptor sets to bind.
      * @param pDynamicOffsets   An array of dynamic offsets.
      */
-    public void bindDescriptorSets(@NativeType("VkPipelineBindPoint") int pipelineBindPoint, @NativeType("VkPipelineLayout") long layout, @NativeType("uint32_t") int firstSet, @NativeType("VkDescriptorSet const *") LongBuffer pDescriptorSets, @Nullable @NativeType("uint32_t const *") IntBuffer pDynamicOffsets) {
-        vkCmdBindDescriptorSets(handle, pipelineBindPoint, layout, firstSet, pDescriptorSets, pDynamicOffsets);
+    public void bindDescriptorSets(@NativeType("VkPipelineBindPoint") int pipelineBindPoint, PipelineLayout layout, @NativeType("uint32_t") int firstSet, @NativeType("VkDescriptorSet const *") LongBuffer pDescriptorSets, @Nullable @NativeType("uint32_t const *") IntBuffer pDynamicOffsets) {
+        vkCmdBindDescriptorSets(handle, pipelineBindPoint, layout.getLayout().handle(), firstSet, pDescriptorSets, pDynamicOffsets);
     }
 
     /**
@@ -581,8 +584,8 @@ public class CommandBuffer extends LibCleanable {
      * @param offset  The offset within the push constant range.
      * @param pValues The values to push.
      */
-    public void pushConstants(@Nonnull DeviceHandle layout, ShaderType stage, int offset, @Nonnull FloatBuffer pValues) {
-        vkCmdPushConstants(handle, layout.handle(), stage.getValue(), offset,pValues);
+    public void pushConstants(@Nonnull PipelineLayout layout, ShaderType stage, int offset, @Nonnull FloatBuffer pValues) {
+        vkCmdPushConstants(handle, layout.getLayout().handle(), stage.getValue(), offset,pValues);
     }
 
     /**
@@ -594,13 +597,13 @@ public class CommandBuffer extends LibCleanable {
         vkCmdNextSubpass(handle, contents);
     }
 
-    public void beginRenderPass(DeviceHandle renderPass, float[] colours, float depth, int stencil, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
+    public void beginRenderPass(@Nonnull RenderPass renderPass,@Nonnull float[] colours, float depth, int stencil, @Nonnull VkExtent2D extent,@Nonnull VkOffset2D offset,@Nonnull FrameBuffer frameBuffer, int contents) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkRenderPassBeginInfo passBeginInfo = VkRenderPassBeginInfo.calloc(stack).sType$Default();
             VkClearValue.Buffer clearValues = VkClearValue.calloc(1, stack)
                     .color(c -> c.float32(stack.floats(colours[0], colours[1], colours[2], colours[3])));
             clearValues.depthStencil().depth(depth / 255.0f).stencil(stencil);
-            passBeginInfo.renderPass(renderPass.handle());
+            passBeginInfo.renderPass(renderPass.getRenderPass().handle());
             passBeginInfo.framebuffer(frameBuffer.getFrameBuffer().handle());
             passBeginInfo.pClearValues(clearValues);
             passBeginInfo.clearValueCount(clearValues.remaining());
@@ -610,12 +613,11 @@ public class CommandBuffer extends LibCleanable {
         }
     }
 
-    public void beginRenderPass(DeviceHandle renderPass, float[] colours, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
+    public void beginRenderPass(RenderPass renderPass, float[] colours, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
         beginRenderPass(renderPass, colours, 100, 1058379158, extent, offset, frameBuffer, contents);
     }
 
-    public void beginRenderPass(DeviceHandle renderPass, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
-
+    public void beginRenderPass(RenderPass renderPass, VkExtent2D extent, VkOffset2D offset, FrameBuffer frameBuffer, int contents) {
         beginRenderPass(renderPass, colours, extent, offset, frameBuffer, contents);
     }
 
@@ -654,8 +656,9 @@ public class CommandBuffer extends LibCleanable {
      * This method should be called when the command buffer is no longer needed.
      */
     @Override
-    public final void free() {
+    protected final void free() {
         device.waitIdle();
         device.freeCommandBuffers(command_pool.getCommandPool(), handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: Done freeing command buffer");
     }
 }

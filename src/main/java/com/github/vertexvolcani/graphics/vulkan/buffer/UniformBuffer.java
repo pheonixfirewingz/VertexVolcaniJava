@@ -13,7 +13,7 @@ import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
  * @version 1.0
  * @since 2023-12-14
  */
-public class UniformBuffer extends Buffer{
+public final class UniformBuffer extends Buffer{
     /**
      * Constructs a new ABuffer instance.
      *

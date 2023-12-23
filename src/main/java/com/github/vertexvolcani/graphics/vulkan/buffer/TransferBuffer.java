@@ -16,7 +16,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @version 1.0
  * @since 2023-11-30
  */
-public class TransferBuffer extends Buffer{
+public final class TransferBuffer extends Buffer{
     /**
      * Constructs a new ABuffer instance.
      *

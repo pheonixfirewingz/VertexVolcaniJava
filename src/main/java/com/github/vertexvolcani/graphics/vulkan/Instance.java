@@ -18,7 +18,7 @@ import java.nio.IntBuffer;
 import static org.lwjgl.glfw.GLFWVulkan.glfwGetRequiredInstanceExtensions;
 import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
-import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.*;
 
 // Code adapted from https://github.com/LWJGL/lwjgl3/blob/master/modules/samples/src/test/java/org/lwjgl/demo/vulkan/HelloVulkan.java
 /**
@@ -36,7 +36,7 @@ public class Instance extends LibCleanable {
     private final boolean debug;
 
     /** The debug messenger callback function. */
-    private final VkDebugUtilsMessengerCallbackEXT dbgFunc = VkDebugUtilsMessengerCallbackEXT.create(
+    private static final VkDebugUtilsMessengerCallbackEXT dbgFunc = VkDebugUtilsMessengerCallbackEXT.create(
             (messageSeverity, messageTypes, pCallbackData, pUserData) -> {
                 // Convert Vulkan debug information to human-readable format
                 String severity = getSeverity(messageSeverity);
@@ -208,7 +208,7 @@ public class Instance extends LibCleanable {
             VkApplicationInfo app = VkApplicationInfo.calloc(stack).sType$Default()
                     .pNext(NULL).pApplicationName(APP_SHORT_NAME)
                     .applicationVersion(0).pEngineName(ENG_SHORT_NAME)
-                    .engineVersion(0).apiVersion(VK.getInstanceVersionSupported());
+                    .engineVersion(0).apiVersion(VK_API_VERSION_1_1);
 
             extension_names.flip();
             VkInstanceCreateInfo pCreateInfo = VkInstanceCreateInfo.calloc(stack).sType$Default()

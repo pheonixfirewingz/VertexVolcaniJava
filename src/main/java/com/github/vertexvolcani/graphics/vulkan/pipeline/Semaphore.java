@@ -19,7 +19,7 @@ import org.lwjgl.vulkan.VkSemaphoreCreateInfo;
  * @version 1.0
  * @since 2023-11-30
  */
-public class Semaphore extends LibCleanable {
+public final class Semaphore extends LibCleanable {
     /** The handle to the Vulkan semaphore. */
     private final DeviceHandle handle;
     /**
@@ -36,6 +36,7 @@ public class Semaphore extends LibCleanable {
                 throw new IllegalStateException("could not create semaphore");
             }
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created semaphore");
     }
 
     /**
@@ -52,8 +53,9 @@ public class Semaphore extends LibCleanable {
      * This method should be called when the semaphore is no longer needed to release Vulkan resources.
      */
     @Override
-    public final void free() {
+    protected void free() {
         handle.device().waitIdle();
         handle.device().destroySemaphore(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: done freeing semaphore");
     }
 }

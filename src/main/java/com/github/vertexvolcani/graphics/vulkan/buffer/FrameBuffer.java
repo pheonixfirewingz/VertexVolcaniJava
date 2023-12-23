@@ -45,6 +45,7 @@ public class FrameBuffer extends LibCleanable {
     public FrameBuffer(Device device_in, RenderPass render_pass, Image[] image_views, Surface surface) {
         VkExtent2D currentExtent = surface.getSurfaceSize();
         handle = create(device_in, currentExtent.width(), currentExtent.height(), render_pass, image_views);
+        Log.print(Log.Severity.DEBUG, "Vulkan: Created frame buffer");
     }
 
     /**
@@ -58,6 +59,7 @@ public class FrameBuffer extends LibCleanable {
      */
     public FrameBuffer(Device device_in, int width, int height, RenderPass render_pass,Image[] image_views) {
         handle = create(device_in, width, height, render_pass, image_views);
+        Log.print(Log.Severity.DEBUG, "Vulkan: Created frame buffer");
     }
 
     private DeviceHandle create(Device device_in, int width, int height, RenderPass render_pass, Image[] image_views) {
@@ -90,5 +92,6 @@ public class FrameBuffer extends LibCleanable {
     @Override
     public final void free() {
         handle.device().destroyFramebuffer(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: Destroyed frame buffer");
     }
 }

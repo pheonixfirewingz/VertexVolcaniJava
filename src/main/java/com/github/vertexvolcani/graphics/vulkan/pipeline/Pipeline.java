@@ -5,6 +5,7 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  *
  * Copyright Luke Shore (c) 2022, 2023
  */
+
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
@@ -18,7 +19,6 @@ import org.lwjgl.vulkan.*;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.nio.LongBuffer;
 
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -37,6 +37,9 @@ public class Pipeline extends LibCleanable {
      */
     private final DeviceHandle handle;
 
+    /**
+     * the layout of the pipeline
+     */
     private final PipelineLayout layout;
 
     /**
@@ -69,6 +72,7 @@ public class Pipeline extends LibCleanable {
             handle = new DeviceHandle(device_in,buffer[0]);
             layout = builder.layout;
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created pipeline");
     }
 
     /**
@@ -97,6 +101,7 @@ public class Pipeline extends LibCleanable {
     public final void free() {
         layout.free();
         handle.device().destroyPipeline(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: done freeing pipeline");
     }
 
     /**

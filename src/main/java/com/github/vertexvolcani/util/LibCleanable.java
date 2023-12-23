@@ -1,4 +1,7 @@
 package com.github.vertexvolcani.util;
+
+import jakarta.annotation.PreDestroy;
+
 /* Vertex Volcani - LICENCE
  *
  * GNU Lesser General Public License Version 3.0
@@ -7,8 +10,10 @@ package com.github.vertexvolcani.util;
  */
 public abstract class LibCleanable implements AutoCloseable{
     protected abstract void free();
+
+    @PreDestroy
     @Override
-    public final void close() {
+    public void close() {
             free();
     }
 }

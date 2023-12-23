@@ -9,7 +9,7 @@ import com.github.vertexvolcani.graphics.vulkan.VmaAllocator;
 
 import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-public class VertexBuffer extends Buffer{
+public final class VertexBuffer extends Buffer{
     /**
      * Constructs a new ABuffer instance.
      *

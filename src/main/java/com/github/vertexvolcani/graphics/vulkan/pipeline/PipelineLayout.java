@@ -7,6 +7,7 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  */
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
+import com.github.vertexvolcani.graphics.vulkan.pipeline.descriptors.DescriptorLayout;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
 import jakarta.annotation.Nullable;
@@ -23,7 +24,7 @@ import java.nio.LongBuffer;
  * @version 1.0
  * @since 2023-12-03
  */
-public class PipelineLayout extends LibCleanable {
+public final class PipelineLayout extends LibCleanable {
     /**
      * The handle to the Vulkan pipeline layout.
      */
@@ -36,10 +37,16 @@ public class PipelineLayout extends LibCleanable {
      * @param push_constant  A VkPushConstantRange.Buffer specifying the push constant ranges.
      * @throws IllegalStateException If the creation of the pipeline layout fails.
      */
-    public PipelineLayout(Device device_in, @Nullable LongBuffer layouts, @Nullable PushConstant[] push_constant) {
+    public PipelineLayout(Device device_in, @Nullable DescriptorLayout[] layouts, @Nullable PushConstant[] push_constant) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
+            LongBuffer handles = stack.mallocLong(layouts == null ? 0 : layouts.length);
+            if (layouts != null) {
+                for (int i = 0; i < layouts.length; i++) {
+                    handles.put(i, layouts[i].getHandle().handle());
+                }
+            }
             VkPipelineLayoutCreateInfo create_info = VkPipelineLayoutCreateInfo.calloc(stack).sType$Default()
-                    .setLayoutCount(layouts == null ? 0 : layouts.remaining()).pSetLayouts(layouts);
+                    .setLayoutCount(layouts == null ? 0 : layouts.length).pSetLayouts(handles);
                     if(push_constant != null) {
                         VkPushConstantRange.Buffer push_constant_range = VkPushConstantRange.calloc(push_constant.length, stack);
                         final boolean is_debug = device_in.isDebug();
@@ -57,6 +64,7 @@ public class PipelineLayout extends LibCleanable {
                 throw new IllegalStateException("failed to create pipeline layout");
             }
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created pipeline layout");
     }
     /**
      * Gets the handle of the Vulkan pipeline layout.
@@ -71,8 +79,9 @@ public class PipelineLayout extends LibCleanable {
      * Cleans up and destroys the Vulkan pipeline layout.
      */
     @Override
-    public final void free() {
+    protected void free() {
         handle.device().destroyPipelineLayout(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: done freeing pipeline layout");
     }
 
     public record PushConstant(ShaderType stage, int offset, int size) {

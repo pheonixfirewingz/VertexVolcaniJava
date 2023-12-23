@@ -26,7 +26,7 @@ import java.nio.ByteBuffer;
  * @version 1.0
  * @since 2023-12-03
  */
-public class Shader extends LibCleanable {
+public final class Shader extends LibCleanable {
     /**
      * The handle to the Vulkan shader module.
      */
@@ -54,6 +54,7 @@ public class Shader extends LibCleanable {
                 throw new IllegalStateException("Failed to create shader module");
             }
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: Created shader module");
     }
 
     /**
@@ -76,6 +77,7 @@ public class Shader extends LibCleanable {
             Log.print(Log.Severity.ERROR, "Vulkan: Failed to compile shader module");
             throw new IllegalStateException("Failed to compile shader module");
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: Created shader module");
     }
 
     /**
@@ -103,7 +105,8 @@ public class Shader extends LibCleanable {
      * </p>
      */
     @Override
-    public final void free() {
+    protected void free() {
         handle.device().destroyShaderModule(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: done freeing shader module");
     }
 }

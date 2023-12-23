@@ -20,7 +20,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @version 1.0
  * @since 2023-12-04
  */
-public class CommandPool extends LibCleanable {
+public final class CommandPool extends LibCleanable {
     /**
      * The handle to the Vulkan command pool.
      */
@@ -41,6 +41,7 @@ public class CommandPool extends LibCleanable {
                 throw new IllegalStateException("failed to create command pool");
             }
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created command pool");
     }
 
     /**
@@ -66,8 +67,9 @@ public class CommandPool extends LibCleanable {
      * Cleans up and destroys the command pool, releasing associated resources.
      */
     @Override
-    public final void free() {
+    protected void free() {
         handle.device().waitIdle();
         handle.device().destroyCommandPool(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: done freeing command pool");
     }
 }

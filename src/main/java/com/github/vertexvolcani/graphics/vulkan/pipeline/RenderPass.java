@@ -21,7 +21,7 @@ import org.lwjgl.vulkan.VkRenderPassCreateInfo;
  * @version 1.0
  * @since 2023-12-03
  */
-public class RenderPass extends LibCleanable {
+public final class RenderPass extends LibCleanable {
     /**
      * The handle to the Vulkan render pass.
      */
@@ -38,6 +38,7 @@ public class RenderPass extends LibCleanable {
             Log.print(Log.Severity.ERROR, "Vulkan: could not create Render pass");
             throw new IllegalStateException("could not create Render pass");
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created Render pass");
     }
 
     /**
@@ -53,8 +54,9 @@ public class RenderPass extends LibCleanable {
      * Cleans up and destroys the Vulkan render pass.
      */
     @Override
-    public final void free() {
+    protected void free() {
         handle.device().waitIdle();
         handle.device().destroyRenderPass(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: done freeing render pass");
     }
 }

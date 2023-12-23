@@ -68,7 +68,7 @@ public class TriangleDemo {
             VkVertexInputAttributeDescription.Buffer attributeDescriptions = VkVertexInputAttributeDescription.calloc(1);
             attributeDescriptions.get(0).binding(0).location(0).format(VK_FORMAT_R32G32_SFLOAT).offset(0);
 
-            Buffer buffer = new VertexBuffer(allocator, 65536, false, VmaMemoryUsage.CPU_TO_GPU).load(vertexBuffer);
+            Buffer buffer = new VertexBuffer(allocator, 65536, false, VmaMemoryUsage.CPU_TO_GPU).write(vertexBuffer);
             return new Vertices(buffer, null, bindingDescriptor, attributeDescriptions);
         }
     }
@@ -115,7 +115,7 @@ public class TriangleDemo {
                     throw new IllegalStateException("Failed to begin render command buffer");
                 }
                 
-                renderCommandBuffers[i].beginRenderPass(renderPass.getRenderPass(),extent,offset, frame_buffers[i], VK_SUBPASS_CONTENTS_INLINE);
+                renderCommandBuffers[i].beginRenderPass(renderPass,extent,offset, frame_buffers[i], VK_SUBPASS_CONTENTS_INLINE);
                 
                 VkExtent2D size = surface.getSurfaceSize();
                 VkViewport.Buffer viewport = VkViewport.calloc(1, stack).height(size.height()).width(size.width()).minDepth(0.0f).maxDepth(1.0f);

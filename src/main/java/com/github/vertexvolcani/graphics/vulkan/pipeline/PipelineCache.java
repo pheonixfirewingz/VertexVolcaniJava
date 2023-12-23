@@ -20,11 +20,11 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
  *
  * <p>This class manages the creation and destruction of Vulkan pipeline caches.</p>
  *
- * @author Your Name
+ * @author Luke Shore
  * @version 1.0
  * @since 2023-12-07
  */
-public class PipelineCache extends LibCleanable {
+public final class PipelineCache extends LibCleanable {
     /**
      * The handle to the Vulkan pipeline cache.
      */
@@ -44,6 +44,7 @@ public class PipelineCache extends LibCleanable {
                 throw new IllegalStateException("failed to create pipeline cache");
             }
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created pipeline cache");
     }
 
     /**
@@ -62,7 +63,8 @@ public class PipelineCache extends LibCleanable {
      * </p>
      */
     @Override
-    public final void free() {
+    protected void free() {
         handle.device().destroyPipelineCache(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: destroyed pipeline cache");
     }
 }

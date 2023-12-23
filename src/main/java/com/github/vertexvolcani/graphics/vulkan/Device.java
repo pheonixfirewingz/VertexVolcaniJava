@@ -22,6 +22,7 @@ import java.nio.LongBuffer;
 import static org.lwjgl.system.MemoryUtil.NULL;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.VK_ERROR_OUT_OF_POOL_MEMORY;
 
 // Code adapted from https://github.com/LWJGL/lwjgl3/blob/master/modules/samples/src/test/java/org/lwjgl/demo/vulkan/HelloVulkan.java
 public class Device extends LibCleanable {
@@ -507,6 +508,10 @@ public class Device extends LibCleanable {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer pBuffer = stack.mallocLong(pCreateInfo.descriptorSetCount());
             result = vkAllocateDescriptorSets(device, pCreateInfo, pBuffer);
+            if(result == VK_ERROR_OUT_OF_POOL_MEMORY) {
+                Log.print(Log.Severity.ERROR, "Vulkan: Failed to allocate descriptor sets due to out of pool memory");
+                throw new IllegalStateException("Failed to allocate descriptor sets due to out of pool memory");
+            }
             for (int i = 0; i < pCreateInfo.descriptorSetCount(); i++) {
                 handle[i] = pBuffer.get(i);
             }

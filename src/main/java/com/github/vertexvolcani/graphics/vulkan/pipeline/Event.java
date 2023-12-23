@@ -26,7 +26,7 @@ import static org.lwjgl.system.MemoryUtil.NULL;
  * @version 1.0
  * @since 2023-12-03
  */
-public class Event extends LibCleanable {
+public final class Event extends LibCleanable {
     /**
      * The handle to the Vulkan event.
      */
@@ -49,6 +49,7 @@ public class Event extends LibCleanable {
                 throw new IllegalStateException("could not create event");
             }
         }
+        Log.print(Log.Severity.DEBUG, "Vulkan: created event");
     }
     /**
      * Resets the event to the un-signaled state.
@@ -81,7 +82,8 @@ public class Event extends LibCleanable {
      * Cleans up and destroys the Vulkan event.
      */
     @Override
-    public final void free() {
+    protected void free() {
         handle.device().destroyEvent(handle);
+        Log.print(Log.Severity.DEBUG, "Vulkan: done freeing event");
     }
 }

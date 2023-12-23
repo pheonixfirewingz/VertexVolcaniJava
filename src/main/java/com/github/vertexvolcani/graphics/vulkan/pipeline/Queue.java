@@ -18,7 +18,7 @@ import java.nio.LongBuffer;
 
 import static org.lwjgl.vulkan.VK10.*;
 
-public class Queue {
+public final class Queue {
     private final VkQueue queue;
 
     public Queue(Device device,int family,int index) {

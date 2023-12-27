@@ -523,7 +523,7 @@ public class Device extends LibCleanable {
         result = vkFreeDescriptorSets(device, descriptorPool.handle(), pDescriptorSets.handle());
     }
 
-    public void updateDescriptorSets(@Nullable @NativeType("VkWriteDescriptorSet const *") VkWriteDescriptorSet.Buffer pDescriptorWrites, @Nullable @NativeType("VkCopyDescriptorSet const *") VkCopyDescriptorSet.Buffer pDescriptorCopies) {
+    public void updateDescriptorSets(@Nonnull @NativeType("VkWriteDescriptorSet const *") VkWriteDescriptorSet.Buffer pDescriptorWrites, @Nullable @NativeType("VkCopyDescriptorSet const *") VkCopyDescriptorSet.Buffer pDescriptorCopies) {
         vkUpdateDescriptorSets(device, pDescriptorWrites, pDescriptorCopies);
     }
 

@@ -41,6 +41,7 @@ public class ModelDemo {
     private Window window;
     private FrameBuffer[] frame_buffers;
     private CommandBuffer[] command_buffers;
+    private Buffer uniform_buffer;
 
     public static void main(String[] args) throws Exception {
         System.setProperty("LWJGL_DISABLE_RENDEROCD", "false");
@@ -155,12 +156,6 @@ public class ModelDemo {
                 renderCommandBuffers[i].setScissor(0, scissor);
 
                 renderCommandBuffers[i].bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipeline());
-                /*VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1);
-                bufferInfo.buffer(uniformBuffer.getBuffer().handle());
-                bufferInfo.offset(0);
-                bufferInfo.range((Float.BYTES * 16));
-                descriptorSets[i].writeBuffer(0, 0, 0, DescriptorType.UNIFORM_BUFFER, bufferInfo);
-                bufferInfo.free();*/
                 LongBuffer pDescriptorSets = stack.callocLong(1);
                 pDescriptorSets.put(0, descriptorSets[i].getHandle(0));
                 renderCommandBuffers[i].bindDescriptorSets(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getLayout(), 0, pDescriptorSets, null);
@@ -240,22 +235,6 @@ public class ModelDemo {
 
             final SwapChain SwapChain = new SwapChain(device, surface, allocator, builder);
 
-            final Buffer uniform_buffer;
-            {
-                Matrix4f model = new Matrix4f().identity().scale(0.3f);
-                FloatBuffer modelBuffer = MemoryUtil.memCallocFloat(16);
-                modelBuffer = model.get(modelBuffer);
-                uniform_buffer = new UniformBuffer(allocator, (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU).write(modelBuffer);
-                MemoryUtil.memFree(modelBuffer);
-                for (int i = 0; i < 3; i++) {
-                    VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1);
-                    bufferInfo.buffer(uniform_buffer.getBuffer().handle());
-                    bufferInfo.offset(0);
-                    bufferInfo.range((Float.BYTES * 16));
-                    descriptorSets[i].writeBuffer(0, 0, 0, false, bufferInfo);
-                    bufferInfo.free();
-                }
-            }
             final class SwapChainHelper {
                 void recreate() {
                     SwapChain.recreate();
@@ -277,6 +256,25 @@ public class ModelDemo {
                         }
                         command_buffers = null;
                         commandPool.reset(0);
+                    }
+
+                    if(uniform_buffer != null) {
+                        uniform_buffer.close();
+                    }
+                    {
+                        final Matrix4f model = new Matrix4f().identity().scale(1.0f);
+                        FloatBuffer modelBuffer = MemoryUtil.memCallocFloat(16);
+                        modelBuffer = model.get(modelBuffer);
+                        uniform_buffer = new UniformBuffer(allocator, (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU).write(modelBuffer);
+                        MemoryUtil.memFree(modelBuffer);
+                        for (int i = 0; i < 3; i++) {
+                            VkDescriptorBufferInfo.Buffer buffer_info = VkDescriptorBufferInfo.calloc(1);
+                            buffer_info.buffer(uniform_buffer.getBuffer().handle());
+                            buffer_info.offset(0);
+                            buffer_info.range((Float.BYTES * 16));
+                            descriptorSets[i].writeBuffer(0, 0, 0, 1,false, buffer_info);
+                            buffer_info.free();
+                        }
                     }
                     command_buffers = createCommandBuffers(device, surface, commandPool, renderPass, pipeline, vertices, descriptorSets);
                 }
@@ -302,7 +300,7 @@ public class ModelDemo {
                 if (SwapChain.queuePresent(queue.getQueue(), new Semaphore[]{render_complete}, pImageIndex) != VK_SUCCESS) {
                     swap_chain_helper.recreate();
                 }
-                queue.waitIdle();
+                device.waitIdle();
             }
             image_acquired.close();
             render_complete.close();

@@ -2,7 +2,7 @@
 
 layout(location=0) in vec3 position;
 
-layout(set=0,binding=0) uniform UBO {
+layout(binding=0) uniform UBO {
   mat4 model;
 } ubo;
 

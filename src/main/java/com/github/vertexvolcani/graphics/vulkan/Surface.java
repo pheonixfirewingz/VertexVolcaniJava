@@ -5,6 +5,7 @@ package com.github.vertexvolcani.graphics.vulkan;
  *
  * Copyright Luke Shore (c) 2023, 2024
  */
+import com.github.vertexvolcani.graphics.ExtendedWindow;
 import com.github.vertexvolcani.graphics.Window;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
@@ -41,6 +42,40 @@ public class Surface extends LibCleanable {
     private final DeviceHandle handle;
 
     private final VkSurfaceFormatKHR.Buffer formats;
+
+    /**
+     * Constructs a new Vulkan surface associated with the given window and Vulkan instance.
+     *
+     * @param window         The GLFW window for which the surface is created.
+     * @param instance_in    The Vulkan instance to associate with the surface.
+     * @throws IllegalStateException If the surface creation fails.
+     */
+    public Surface(@Nonnull ExtendedWindow window, @Nonnull Instance instance_in, @Nonnull Device device_in) {
+        Log.print(Log.Severity.DEBUG, "Vulkan: creating Vulkan surface...");
+        instance = instance_in;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            LongBuffer buffer = stack.callocLong(1);
+            IntBuffer pFormatCount = stack.callocInt(1);
+            if (glfwCreateWindowSurface(instance.getInstance(), window.getID(), null, buffer) != VK_SUCCESS) {
+                Log.print(Log.Severity.ERROR, "Vulkan: could not create window binder surface");
+                throw new IllegalStateException("Could not create window binder surface");
+            }
+            handle = new DeviceHandle(device_in,buffer.get(0));
+
+            if (vkGetPhysicalDeviceSurfaceFormatsKHR(handle.device().getPhysicalDevice(), handle.handle(), pFormatCount, null) != VK_SUCCESS) {
+                Log.print(Log.Severity.ERROR,"Vulkan: Failed to query number of physical device surface formats");
+                throw new IllegalStateException("Failed to query number of physical device surface formats");
+            }
+
+            formats = VkSurfaceFormatKHR.calloc(pFormatCount.get(0));
+            int formatCount = pFormatCount.get(0);
+            if (vkGetPhysicalDeviceSurfaceFormatsKHR(handle.device().getPhysicalDevice(), handle.handle(), pFormatCount, formats) != VK_SUCCESS) {
+                Log.print(Log.Severity.ERROR,"Vulkan: Failed to query physical device surface formats");
+                throw new IllegalStateException("Failed to query physical device surface formats");
+            }
+        }
+        Log.print(Log.Severity.DEBUG, "Vulkan: done creating Vulkan surface");
+    }
 
     /**
      * Constructs a new Vulkan surface associated with the given window and Vulkan instance.

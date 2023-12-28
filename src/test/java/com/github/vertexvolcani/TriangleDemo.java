@@ -1,6 +1,6 @@
 package com.github.vertexvolcani;
 
-import com.github.vertexvolcani.graphics.Window;
+import com.github.vertexvolcani.graphics.ExtendedWindow;
 import com.github.vertexvolcani.graphics.vulkan.*;
 import com.github.vertexvolcani.graphics.vulkan.buffer.*;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.*;
@@ -18,7 +18,7 @@ import java.nio.LongBuffer;
 import static org.lwjgl.vulkan.KHRSurface.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 import static org.lwjgl.vulkan.KHRSurface.VK_PRESENT_MODE_FIFO_KHR;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.*;
 
 public class TriangleDemo {
     private FrameBuffer[] frame_buffers;
@@ -28,10 +28,10 @@ public class TriangleDemo {
         demo.run();
     }
 
-    private FrameBuffer[] createFrameBuffers(Device device,Surface surface, SwapChain SwapChain, RenderPass renderPass) {
-        FrameBuffer[] frame_buffers = new FrameBuffer[SwapChain.getImages().length];
-        for (int i = 0; i < SwapChain.getImages().length; i++) {
-            frame_buffers[i] = new FrameBuffer(device, renderPass, new Image[]{SwapChain.getImagesViews()[i]}, surface);
+    private FrameBuffer[] createFrameBuffers(Device device,ExtendedWindow window, RenderPass renderPass) {
+        FrameBuffer[] frame_buffers = new FrameBuffer[window.getSwapChain().getImages().length];
+        for (int i = 0; i < window.getSwapChain().getImages().length; i++) {
+            frame_buffers[i] = new FrameBuffer(device, renderPass, new Image[]{window.getSwapChain().getImagesViews()[i]}, window.getSurface());
         }
         return frame_buffers;
     }
@@ -66,7 +66,7 @@ public class TriangleDemo {
             bindingDescriptor.binding(0).stride(2 * 4).inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
 
             VkVertexInputAttributeDescription.Buffer attributeDescriptions = VkVertexInputAttributeDescription.calloc(1);
-            attributeDescriptions.get(0).binding(0).location(0).format(VK_FORMAT_R32G32_SFLOAT).offset(0);
+            attributeDescriptions.binding(0).location(0).format(VK_FORMAT_R32G32_SFLOAT).offset(0);
 
             Buffer buffer = new VertexBuffer(allocator, 65536, false, VmaMemoryUsage.CPU_TO_GPU).write(vertexBuffer);
             return new Vertices(buffer, null, bindingDescriptor, attributeDescriptions);
@@ -105,8 +105,7 @@ public class TriangleDemo {
                 renderCommandBuffers[i] = new CommandBuffer(device, commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
             }
 
-            VkExtent2D extent = VkExtent2D.calloc(stack);
-            extent.set(surface.getSurfaceSize());
+            VkExtent2D extent = VkExtent2D.calloc(stack).set(surface.getSurfaceSize());
             VkOffset2D offset = VkOffset2D.calloc(stack);
 
             for (int i = 0; i < renderCommandBuffers.length; ++i) {
@@ -148,28 +147,24 @@ public class TriangleDemo {
 
     public void run() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            final Window window = new Window(800, 600, "GLFW Vulkan Demo", (event) -> {});
-            // Create the Vulkan instance
-            final Instance instance = new Instance(true, "TriangleDemo");
-            final Device device = new Device(instance);
-            final VmaAllocator allocator = new VmaAllocator(instance, device);
-            final Surface surface = new Surface(window, instance, device);
-            // Create static Vulkan resources
-            final CommandPool commandPool = new CommandPool(device, device.getGraphicsIndex(), true);
-            final Queue queue = new Queue(device,device.getGraphicsIndex(), 0);
-            final RenderPass renderPass = createRenderPass(device,surface);
-            final Vertices vertices = createVertices(allocator);
-            final Pipeline pipeline = createPipeline(device,renderPass, vertices);
-
+            ExtendedWindow.PrimeGLFW();
             SwapChain.SwapChainBuilder builder = new SwapChain.SwapChainBuilder();
             builder.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).imageArrayLayers(1)
                     .presentMode(VK_PRESENT_MODE_FIFO_KHR).clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
+            // Create the Vulkan instance
+            final Instance instance = new Instance(true, "TriangleDemo");
+            final Device device = new Device(instance);
+            final ExtendedWindow window = new ExtendedWindow(800, 600, "GLFW Vulkan Demo", (event) -> {}, instance, device, builder);
 
-            final SwapChain SwapChain = new SwapChain(device, surface, allocator, builder);
+            // Create static Vulkan resources
+            final CommandPool commandPool = new CommandPool(device, device.getGraphicsIndex(), true);
+            final Queue queue = new Queue(device,device.getGraphicsIndex(), 0);
+            final RenderPass renderPass = createRenderPass(device,window.getSurface());
+            final Vertices vertices = createVertices(window.getAllocator());
+            final Pipeline pipeline = createPipeline(device,renderPass, vertices);
+
             final class SwapChainHelper {
                 void recreate() {
-                    SwapChain.recreate();
-                    queue.waitIdle();
                     if (frame_buffers != null) {
                         for (var frame_buffer : frame_buffers) {
                             try {
@@ -180,7 +175,7 @@ public class TriangleDemo {
                         }
                         frame_buffers = null;
                     }
-                    frame_buffers = createFrameBuffers(device,surface, SwapChain, renderPass);
+                    frame_buffers = createFrameBuffers(device,window, renderPass);
                     if (command_buffers != null) {
                         for (var c:command_buffers){
                             c.close();
@@ -188,10 +183,11 @@ public class TriangleDemo {
                         command_buffers = null;
                         commandPool.reset(0);
                     }
-                    command_buffers = createCommandBuffers(device,surface,commandPool, renderPass, pipeline, vertices.buffer());
+                    command_buffers = createCommandBuffers(device,window.getSurface(),commandPool, renderPass, pipeline, vertices.buffer());
                 }
             }
             final SwapChainHelper swap_chain_helper = new SwapChainHelper();
+            window.refreshSwapChain();
             swap_chain_helper.recreate();
 
             final IntBuffer pImageIndex = stack.callocInt(1);
@@ -203,16 +199,15 @@ public class TriangleDemo {
 
             while (!window.ShouldClose()) {
                 window.poll();
-                SwapChain.acquireNextImage(null, image_acquired, pImageIndex);
+                window.getSwapChain().acquireNextImage(null, image_acquired, pImageIndex);
                 pCommandBuffers.put(0, command_buffers[pImageIndex.get(0)].getCommandBuffer());
                 if (queue.submit(pCommandBuffers,pWaitDstStageMask,new Semaphore[]{image_acquired},new Semaphore[]{render_complete},null) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to submit render queue");
                     throw new IllegalStateException("Failed to submit render queue");
                 }
-                if (SwapChain.queuePresent(queue.getQueue(), new Semaphore[]{render_complete}, pImageIndex) != VK_SUCCESS) {
+                if (window.swapBuffers(queue, new Semaphore[]{render_complete}, pImageIndex) != VK_SUCCESS) {
                     swap_chain_helper.recreate();
                 }
-                queue.waitIdle();
             }
             image_acquired.close();
             render_complete.close();
@@ -228,12 +223,9 @@ public class TriangleDemo {
             vertices.buffer().close();
             vertices.attributeDescriptions().close();
             vertices.bindingDescriptor().close();
-            SwapChain.close();
-            surface.close();
-            allocator.close();
+            window.close();
             device.close();
             instance.close();
-            window.close();
         }
     }
 }

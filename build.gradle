@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.github.vertexvolcani'
-version = 'ALPHA-2.0'
+version = 'ALPHA-2.1'
 
 repositories {
     mavenCentral()

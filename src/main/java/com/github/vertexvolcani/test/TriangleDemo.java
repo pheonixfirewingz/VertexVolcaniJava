@@ -121,7 +121,6 @@ public class TriangleDemo {
                 renderCommandBuffers[i].setViewport(0, viewport);
 
                 VkRect2D.Buffer scissor = VkRect2D.calloc(1, stack);
-
                 scissor.extent().set(surface.getSurfaceSize());
                 scissor.offset().set(0, 0);
                 renderCommandBuffers[i].setScissor(0, scissor);

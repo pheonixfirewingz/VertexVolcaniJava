@@ -29,16 +29,10 @@ import static org.lwjgl.vulkan.VK11.*;
 
 public class DynamicTriangleDemo {
     private CommandBuffer[] command_buffers;
+
     public static void main(String[] args) {
         final DynamicTriangleDemo demo = new DynamicTriangleDemo();
         demo.run();
-    }
-
-    private VkRect2D renderArea(MemoryStack stack, VkExtent2D extent) {
-        VkRect2D renderArea = VkRect2D.calloc(stack);
-        renderArea.extent().set(extent);
-        renderArea.offset().set(0, 0);
-        return renderArea;
     }
 
     private Vertices createVertices(VmaAllocator allocator) {
@@ -60,13 +54,13 @@ public class DynamicTriangleDemo {
         }
     }
 
-    private Pipeline createPipeline(Device device,VVWindow window, Vertices vertices) {
+    private Pipeline createPipeline(Device device, VVWindow window, Vertices vertices) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PipelineLayout layout = new PipelineLayout(device, null, null);
             Shader[] shaders = new Shader[2];
             shaders[0] = new Shader(device, "shader/triangle.vert", ShaderType.VERTEX);
             shaders[1] = new Shader(device, "shader/triangle.frag", ShaderType.FRAGMENT);
-            try(Pipeline.PipelineBuilder builder = new Pipeline.PipelineBuilder(shaders, layout, null,true)) {
+            try (Pipeline.PipelineBuilder builder = new Pipeline.PipelineBuilder(shaders, layout, null, true)) {
                 VkPipelineColorBlendAttachmentState.Buffer colorWriteMask = VkPipelineColorBlendAttachmentState.calloc(1, stack).colorWriteMask(0xF); // <- RGBA
                 builder.setColourBlendAttachments(colorWriteMask);
                 VkStencilOpState op = VkStencilOpState.calloc(stack);
@@ -77,8 +71,8 @@ public class DynamicTriangleDemo {
                 builder.setDepthBack(op);
                 builder.setVertexInputAttribute(vertices.attributeDescriptions());
                 IntBuffer formats = stack.callocInt(1);
-                formats.put(0,window.getSurface().getColourFormat()).flip();
-                builder.setDynamicPipelineRenderingState(formats,VK_FORMAT_UNDEFINED,VK_FORMAT_UNDEFINED);
+                formats.put(0, window.getSurface().getColourFormat()).flip();
+                builder.setDynamicPipelineRenderingState(formats, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED);
                 builder.setVertexInputBinding(vertices.bindingDescriptor());
                 IntBuffer pDynamicStates = stack.callocInt(2);
                 pDynamicStates.put(VK_DYNAMIC_STATE_VIEWPORT).put(VK_DYNAMIC_STATE_SCISSOR).flip();
@@ -92,7 +86,6 @@ public class DynamicTriangleDemo {
         var img_view = surface.getSwapChain().getImages();
         try (MemoryStack stack = MemoryStack.stackPush()) {
             command_buffers = CommandBuffer.createCommandBuffers(device, commandPool, img_view.length, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-            VkExtent2D extent = VkExtent2D.calloc(stack).set(surface.getSurface().getSurfaceSize());
             for (int i = 0; i < command_buffers.length; ++i) {
                 if (command_buffers[i].begin(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to begin render command buffer");
@@ -110,7 +103,6 @@ public class DynamicTriangleDemo {
                 // Use dynamic rendering
                 VkClearValue clearColor = VkClearValue.calloc(stack);
                 clearColor.color().float32(0, 0.392156863f).float32(1, 0.584313725f).float32(2, 0.929411765f).float32(3, 1.0f);
-                clearColor.depthStencil().set(1.0f, 0);
                 VkRenderingAttachmentInfoKHR.Buffer colorAttachment = VkRenderingAttachmentInfoKHR.calloc(1, stack)
                         .sType(VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR)
                         .imageView(img_view[i].getImageView().handle())
@@ -118,7 +110,11 @@ public class DynamicTriangleDemo {
                         .loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR)
                         .storeOp(VK_ATTACHMENT_STORE_OP_STORE)
                         .clearValue(clearColor);
-                command_buffers[i].beginDynamicRendering(renderArea(stack, extent), 1, 0, colorAttachment, null, null);
+                VkRect2D.Buffer window_size = VkRect2D.calloc(1, stack);
+                window_size.extent().set(surface.getSurface().getSurfaceSize());
+                window_size.offset().set(0, 0);
+
+                command_buffers[i].beginDynamicRendering(window_size.get(), 1, 0, colorAttachment, null, null);
                 // Set viewport and scissor
                 VkExtent2D size = surface.getSurface().getSurfaceSize();
                 VkViewport.Buffer viewport = VkViewport.calloc(1, stack)
@@ -129,8 +125,8 @@ public class DynamicTriangleDemo {
                 command_buffers[i].setViewport(0, viewport);
 
                 VkRect2D.Buffer scissor = VkRect2D.calloc(1, stack);
-                scissor.extent().set(size);
-                scissor.offset().set(0, 0);
+                window_size.extent().set(surface.getSurface().getSurfaceSize());
+                window_size.offset().set(0, 0);
                 command_buffers[i].setScissor(0, scissor);
 
                 // Bind pipeline
@@ -171,12 +167,13 @@ public class DynamicTriangleDemo {
                     .presentMode(VK_PRESENT_MODE_FIFO_KHR).clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
             // Create the Vulkan instance
             final Instance instance = new Instance(true, "TriangleDemo");
-            final Device device = new Device(instance,new Device.DeviceFeaturesToEnabled(true));
-            final VVWindow window = new VVWindow(800, 600, "GLFW Vulkan Demo", (event) -> {}, instance, device, builder);
+            final Device device = new Device(instance, new Device.DeviceFeaturesToEnabled(true));
+            final VVWindow window = new VVWindow(800, 600, "GLFW Vulkan Demo", (event) -> {
+            }, instance, device, builder);
 
             // Create static Vulkan resources
             final CommandPool commandPool = new CommandPool(device, device.getGraphicsIndex(), true);
-            final Queue queue = new Queue(device,device.getGraphicsIndex(), 0);
+            final Queue queue = new Queue(device, device.getGraphicsIndex(), 0);
             final Vertices vertices = createVertices(window.getAllocator());
             final Pipeline pipeline = createPipeline(device, window, vertices);
 
@@ -187,7 +184,7 @@ public class DynamicTriangleDemo {
                         command_buffers = null;
                         commandPool.reset(0);
                     }
-                    createCommandBuffers(device,window,commandPool, pipeline, vertices.buffer());
+                    createCommandBuffers(device, window, commandPool, pipeline, vertices.buffer());
                 }
             }
             final SwapChainHelper swap_chain_helper = new SwapChainHelper();
@@ -205,7 +202,7 @@ public class DynamicTriangleDemo {
                 window.poll();
                 window.getSwapChain().acquireNextImage(null, image_acquired, pImageIndex);
                 pCommandBuffers.put(0, command_buffers[pImageIndex.get(0)].getCommandBuffer());
-                if (queue.submit(pCommandBuffers,pWaitDstStageMask,new Semaphore[]{image_acquired},new Semaphore[]{render_complete},null) != VK_SUCCESS) {
+                if (queue.submit(pCommandBuffers, pWaitDstStageMask, new Semaphore[]{image_acquired}, new Semaphore[]{render_complete}, null) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to submit render queue");
                     throw new IllegalStateException("Failed to submit render queue");
                 }

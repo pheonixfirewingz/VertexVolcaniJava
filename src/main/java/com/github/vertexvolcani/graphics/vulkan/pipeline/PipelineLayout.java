@@ -10,7 +10,7 @@ import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.descriptors.DescriptorLayout;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nullable;
+import com.github.vertexvolcani.util.Nullable;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPipelineLayoutCreateInfo;
 import org.lwjgl.vulkan.VkPushConstantRange;

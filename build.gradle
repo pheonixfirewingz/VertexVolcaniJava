@@ -53,9 +53,6 @@ dependencies {
     implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: Log4jVersion
     // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core
     implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: Log4jVersion
-    // https://mvnrepository.com/artifact/jakarta.annotation/jakarta.annotation-api
-    implementation group: 'jakarta.annotation', name: 'jakarta.annotation-api', version: '3.0.0-M1'
-
     // https://mvnrepository.com/artifact/de.javagl/obj
     implementation group: 'de.javagl', name: 'obj', version: '0.4.0'
 
@@ -79,6 +76,16 @@ dependencies {
     implementation "org.joml:joml:${jomlVersion}"
 }
 
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    manifest {
+        attributes 'Main-Class': 'com.github.vertexvolcani.test.DynamicTriangleDemo'
+    }
+}
+
 publishing {
     publications {
         VertexVolcani(MavenPublication) {
@@ -98,7 +105,7 @@ publishing {
                     developer {
                         id = 'lukes'
                         name = 'Luke Shore'
-                        email = 'Luke.A.shore@outlook.com'
+                        email = 'Luke.A.shore@proton.me'
                     }
                 }
                 scm {

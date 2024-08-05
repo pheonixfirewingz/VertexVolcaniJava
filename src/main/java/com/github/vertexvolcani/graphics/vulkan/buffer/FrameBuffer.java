@@ -13,15 +13,16 @@ import com.github.vertexvolcani.graphics.vulkan.Surface;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.RenderPass;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
+import com.github.vertexvolcani.util.Nonnull;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkExtent2D;
 import org.lwjgl.vulkan.VkFramebufferCreateInfo;
 
 import java.nio.LongBuffer;
 /**
- * Represents a Vulkan framebuffer used for rendering.
+ * Represents a Vulkan frame buffer used for rendering.
  *
- * <p>This class encapsulates the creation and management of Vulkan framebuffers.</p>
+ * <p>This class encapsulates the creation and management of Vulkan frame buffers.</p>
  *
  * @author Luke Shore
  * @version 1.0
@@ -42,7 +43,7 @@ public class FrameBuffer extends LibCleanable {
      * @param image_views   The Vulkan list of image view.
      * @param surface      The Vulkan surface.
      */
-    public FrameBuffer(Device device_in, RenderPass render_pass, Image[] image_views, Surface surface) {
+    public FrameBuffer(@Nonnull Device device_in, @Nonnull RenderPass render_pass, @Nonnull Image[] image_views,@Nonnull Surface surface) {
         VkExtent2D currentExtent = surface.getSurfaceSize();
         handle = create(device_in, currentExtent.width(), currentExtent.height(), render_pass, image_views);
         Log.print(Log.Severity.DEBUG, "Vulkan: Created frame buffer");
@@ -57,7 +58,7 @@ public class FrameBuffer extends LibCleanable {
      * @param render_pass  The Vulkan render pass.
      * @param image_views   The Vulkan list of image view.
      */
-    public FrameBuffer(Device device_in, int width, int height, RenderPass render_pass,Image[] image_views) {
+    public FrameBuffer(@Nonnull Device device_in, int width, int height,@Nonnull RenderPass render_pass,@Nonnull Image[] image_views) {
         handle = create(device_in, width, height, render_pass, image_views);
         Log.print(Log.Severity.DEBUG, "Vulkan: Created frame buffer");
     }

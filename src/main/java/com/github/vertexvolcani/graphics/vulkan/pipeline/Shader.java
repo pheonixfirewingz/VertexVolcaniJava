@@ -10,8 +10,8 @@ import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
+import com.github.vertexvolcani.util.Nonnull;
 import com.github.vertexvolcani.util.ShaderCUtil;
-import jakarta.annotation.Nonnull;
 import org.lwjgl.vulkan.VkShaderModuleCreateInfo;
 
 import java.io.IOException;

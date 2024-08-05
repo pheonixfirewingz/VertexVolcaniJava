@@ -1,4 +1,4 @@
-package com.github.vertexvolcani.util;
+package com.github.vertexvolcani.test.util;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;

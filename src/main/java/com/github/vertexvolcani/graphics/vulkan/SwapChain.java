@@ -9,8 +9,8 @@ import com.github.vertexvolcani.graphics.vulkan.pipeline.Fence;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.Semaphore;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
+import com.github.vertexvolcani.util.Nonnull;
+import com.github.vertexvolcani.util.Nullable;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.NativeType;
 import org.lwjgl.vulkan.*;
@@ -48,8 +48,7 @@ public class SwapChain extends LibCleanable {
      * The handle to the Vulkan swap chain.
      */
     private long handle;
-    private long[] swap_chain_images;
-    private Image[] swap_chain_images_view;
+    private Image[] swap_chain_images;
 
     public SwapChain(Device device_in, Surface surface_in,VmaAllocator allocator_in, SwapChainBuilder builder_in) {
         super();
@@ -65,12 +64,11 @@ public class SwapChain extends LibCleanable {
     }
 
     private void destroy(long local_handle) {
-        if (swap_chain_images_view == null)
+        if (swap_chain_images == null)
             return;
         vkDestroySwapchainKHR(device.getDevice(), local_handle, null);
-        for (var imageView : swap_chain_images_view)
-            imageView.free();
-        swap_chain_images_view = null;
+        for (var image: swap_chain_images)
+            image.free();
         swap_chain_images = null;
     }
 
@@ -130,8 +128,7 @@ public class SwapChain extends LibCleanable {
                 throw new IllegalStateException("Failed to get swap chain images");
             }
 
-            long[] images = new long[imageCount];
-            Image[] imageViews = new Image[imageCount];
+            Image[] images = new Image[imageCount];
 
             Image.ImageInformation info = new Image.ImageInformation();
             info.setFormat(colour_format);
@@ -139,10 +136,9 @@ public class SwapChain extends LibCleanable {
                     .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).levelCount(1).layerCount(1);
             info.setSubResourceRange(colorAttachmentView);
             for (int i = 0; i < imageCount; i++) {
-               imageViews[i] = new Image(allocator,info,pSwapChainImages.get(i));
+               images[i] = new Image(allocator,info,pSwapChainImages.get(i));
             }
             swap_chain_images = images;
-            swap_chain_images_view = imageViews;
         }
     }
 
@@ -155,12 +151,8 @@ public class SwapChain extends LibCleanable {
         return handle;
     }
 
-    public long[] getImages() {
+    public Image[] getImages() {
         return swap_chain_images;
-    }
-
-    public Image[] getImagesViews() {
-        return swap_chain_images_view;
     }
 
     @NativeType("VkResult")

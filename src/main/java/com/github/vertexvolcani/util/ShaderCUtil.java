@@ -44,9 +44,9 @@ public class ShaderCUtil {
         } else {
             buffer = BufferUtils.createByteBuffer(bufferSize);
             InputStream source = url.openStream();
-            if (source == null)
-                throw new FileNotFoundException(resource);
-            try {
+            try (source) {
+                if (source == null)
+                    throw new FileNotFoundException(resource);
                 byte[] buf = new byte[8192];
                 while (true) {
                     int bytes = source.read(buf, 0, buf.length);
@@ -57,8 +57,6 @@ public class ShaderCUtil {
                     buffer.put(buf, 0, bytes);
                 }
                 buffer.flip();
-            } finally {
-                source.close();
             }
         }
         return buffer;

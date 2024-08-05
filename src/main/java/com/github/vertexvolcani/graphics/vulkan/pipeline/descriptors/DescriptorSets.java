@@ -4,7 +4,7 @@ import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nonnull;
+import com.github.vertexvolcani.util.Nonnull;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkDescriptorBufferInfo;
 import org.lwjgl.vulkan.VkDescriptorImageInfo;
@@ -21,7 +21,7 @@ public final class DescriptorSets extends LibCleanable {
     private final DescriptorPool pool;
     private final long[] handles;
 
-    public DescriptorSets(Device device_in, DescriptorPool pool_in, DescriptorLayout[] layouts) {
+    public DescriptorSets(@Nonnull Device device_in,@Nonnull DescriptorPool pool_in,@Nonnull DescriptorLayout[] layouts) {
         handles = new long[layouts.length];
         device = device_in;
         pool = pool_in;

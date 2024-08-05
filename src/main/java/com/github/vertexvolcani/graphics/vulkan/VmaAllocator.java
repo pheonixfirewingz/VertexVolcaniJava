@@ -7,7 +7,7 @@ package com.github.vertexvolcani.graphics.vulkan;
  */
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nonnull;
+import com.github.vertexvolcani.util.Nonnull;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.vma.VmaAllocatorCreateInfo;
@@ -19,7 +19,7 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class VmaAllocator extends LibCleanable {
     private final DeviceHandle handle;
-    public VmaAllocator(@Nonnull Instance instance,@Nonnull Device device) {
+    public VmaAllocator(@Nonnull Instance instance, @Nonnull Device device) {
         super();
         Log.print(Log.Severity.DEBUG,"Vulkan: creating vma allocator...");
         try(MemoryStack stack = MemoryStack.stackPush()) {

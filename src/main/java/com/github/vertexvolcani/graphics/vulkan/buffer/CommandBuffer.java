@@ -8,13 +8,15 @@ package com.github.vertexvolcani.graphics.vulkan.buffer;
 
 import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
+import com.github.vertexvolcani.graphics.vulkan.Image;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.PipelineLayout;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.RenderPass;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.ShaderType;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
+
+import com.github.vertexvolcani.util.Nonnull;
+import com.github.vertexvolcani.util.Nullable;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.NativeType;
@@ -25,6 +27,7 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
+import static org.lwjgl.vulkan.KHRDynamicRendering.*;
 import static org.lwjgl.vulkan.VK10.*;
 
 /**
@@ -76,6 +79,54 @@ public final class CommandBuffer extends LibCleanable {
     }
 
     /**
+     * make primary command buffer
+     *
+     * @param device The Vulkan device associated with the command buffer.
+     * @param pool   The command pool from which the command buffer is allocated.
+     * @return the created command buffer
+     */
+    public static CommandBuffer createPrimeryCommandBuffer(Device device, CommandPool pool) {
+        return new CommandBuffer(device, pool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    }
+
+    /**
+     * make secondary command buffer
+     *
+     * @param device The Vulkan device associated with the command buffer.
+     * @param pool   The command pool from which the command buffer is allocated.
+     * @return the created command buffer
+     */
+    public static CommandBuffer createSecondaryCommandBuffer(Device device, CommandPool pool) {
+        return new CommandBuffer(device, pool, VK_COMMAND_BUFFER_LEVEL_SECONDARY);
+    }
+
+    /**
+     * make multiple command buffers
+     *
+     * @param device The Vulkan device associated with the command buffer.
+     * @param pool   The command pool from which the command buffer is allocated.
+     * @param count  The number of command buffers to create.
+     * @param level  The command buffer level (primary or secondary).
+     * @return the created command buffers
+     */
+    public static CommandBuffer[] createCommandBuffers(Device device, CommandPool pool, int count, int level) {
+        CommandBuffer[] buffers = new CommandBuffer[count];
+        for (int i = 0; i < count; i++) {
+            buffers[i] = new CommandBuffer(device, pool, level);
+        }
+        return buffers;
+    }
+
+    /**
+     *  destroy command buffers
+     * @param buffers the command buffers to destroy
+     */
+    public static void destroyCommandBuffers(CommandBuffer[] buffers) {
+        for (CommandBuffer buffer : buffers) {
+            buffer.close();
+        }
+    }
+    /**
      * Submits the command buffer to a Vulkan queue.
      *
      * @param queue The Vulkan queue to submit the command buffer to.
@@ -101,6 +152,19 @@ public final class CommandBuffer extends LibCleanable {
         int ret = vkBeginCommandBuffer(handle, cmdBufInfo);
         cmdBufInfo.free();
         return ret;
+    }
+
+    public void beginDynamicRendering(VkRect2D renderArea, int layerCount, int viewMask, @Nullable @NativeType("VkRenderingAttachmentInfo const *") VkRenderingAttachmentInfo.Buffer colorAttachment, @Nullable @NativeType("VkRenderingAttachmentInfo const *") VkRenderingAttachmentInfo depthAttachment, @Nullable @NativeType("VkRenderingAttachmentInfo const *") VkRenderingAttachmentInfo stencilAttachment) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VkRenderingInfoKHR renderingInfo = VkRenderingInfoKHR.calloc(stack).sType(VK_STRUCTURE_TYPE_RENDERING_INFO_KHR)
+                    .renderArea(renderArea).layerCount(layerCount).viewMask(viewMask).pColorAttachments(colorAttachment)
+                    .pDepthAttachment(depthAttachment).pStencilAttachment(stencilAttachment);
+            vkCmdBeginRenderingKHR(handle, renderingInfo);
+        }
+    }
+
+    public void endDynamicRendering() {
+        vkCmdEndRenderingKHR(handle);
     }
 
     /**
@@ -220,7 +284,7 @@ public final class CommandBuffer extends LibCleanable {
      * @param pDescriptorSets   An array of descriptor sets to bind.
      * @param pDynamicOffsets   An array of dynamic offsets.
      */
-    public void bindDescriptorSets(@NativeType("VkPipelineBindPoint") int pipelineBindPoint, PipelineLayout layout, @NativeType("uint32_t") int firstSet, @NativeType("VkDescriptorSet const *") LongBuffer pDescriptorSets, @Nullable @NativeType("uint32_t const *") IntBuffer pDynamicOffsets) {
+    public void bindDescriptorSets(@NativeType("VkPipelineBindPoint") int pipelineBindPoint, @Nonnull PipelineLayout layout, @NativeType("uint32_t") int firstSet, @NativeType("VkDescriptorSet const *") LongBuffer pDescriptorSets, @Nullable @NativeType("uint32_t const *") IntBuffer pDynamicOffsets) {
         vkCmdBindDescriptorSets(handle, pipelineBindPoint, layout.getLayout().handle(), firstSet, pDescriptorSets, pDynamicOffsets);
     }
 
@@ -518,6 +582,39 @@ public final class CommandBuffer extends LibCleanable {
         vkCmdPipelineBarrier(handle, srcStageMask, dstStageMask, dependencyFlags, pMemoryBarriers, pBufferMemoryBarriers, pImageMemoryBarriers);
     }
 
+    public void insertImageMemoryBarrier(Image image,
+                                         int srcAccessMask,
+                                         int dstAccessMask,
+                                         int oldImageLayout,
+                                         int newImageLayout,
+                                         int srcStageMask,
+                                         int dstStageMask,
+                                         ImageSubResourceRange subresourceRange) {
+        try(MemoryStack stack = MemoryStack.stackPush()) {
+            if(image.getImage() == VK_NULL_HANDLE) {
+                Log.print(Log.Severity.ERROR, "Vulkan: Image handle is null in insertImageMemoryBarrier this is not allowed");
+                throw new IllegalStateException("Image handle is null in insertImageMemoryBarrier this is not allowed");
+            }
+            VkImageSubresourceRange range = VkImageSubresourceRange.calloc(stack)
+                    .aspectMask(subresourceRange.aspectMask())
+                    .baseMipLevel(subresourceRange.baseMipLevel())
+                    .levelCount(subresourceRange.levelCount())
+                    .baseArrayLayer(subresourceRange.baseArrayLayer())
+                    .layerCount(subresourceRange.layerCount());
+            VkImageMemoryBarrier.Buffer image_memory_barrier = VkImageMemoryBarrier.calloc(1, stack)
+                    .sType$Default()
+                    .srcAccessMask(srcAccessMask)
+                    .dstAccessMask(dstAccessMask)
+                    .oldLayout(oldImageLayout)
+                    .newLayout(newImageLayout)
+                    .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .image(image.getImage())
+                    .subresourceRange(range);
+            vkCmdPipelineBarrier(handle, srcStageMask, dstStageMask, 0, null, null, image_memory_barrier);
+        }
+    }
+
     /**
      * Begins a query in the command buffer.
      *
@@ -585,7 +682,7 @@ public final class CommandBuffer extends LibCleanable {
      * @param pValues The values to push.
      */
     public void pushConstants(@Nonnull PipelineLayout layout, ShaderType stage, int offset, @Nonnull FloatBuffer pValues) {
-        vkCmdPushConstants(handle, layout.getLayout().handle(), stage.getValue(), offset,pValues);
+        vkCmdPushConstants(handle, layout.getLayout().handle(), stage.getValue(), offset, pValues);
     }
 
     /**
@@ -597,7 +694,7 @@ public final class CommandBuffer extends LibCleanable {
         vkCmdNextSubpass(handle, contents);
     }
 
-    public void beginRenderPass(@Nonnull RenderPass renderPass,@Nonnull float[] colours, float depth, int stencil, @Nonnull VkExtent2D extent,@Nonnull VkOffset2D offset,@Nonnull FrameBuffer frameBuffer, int contents) {
+    public void beginRenderPass(@Nonnull RenderPass renderPass, @Nonnull float[] colours, float depth, int stencil, @Nonnull VkExtent2D extent, @Nonnull VkOffset2D offset, @Nonnull FrameBuffer frameBuffer, int contents) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkRenderPassBeginInfo passBeginInfo = VkRenderPassBeginInfo.calloc(stack).sType$Default();
             VkClearValue.Buffer clearValues = VkClearValue.calloc(1, stack)

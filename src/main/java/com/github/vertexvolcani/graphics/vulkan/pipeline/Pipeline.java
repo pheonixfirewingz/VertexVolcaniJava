@@ -10,8 +10,8 @@ import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
+import com.github.vertexvolcani.util.Nonnull;
+import com.github.vertexvolcani.util.Nullable;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
@@ -117,8 +117,10 @@ public class Pipeline extends LibCleanable {
         private final VkPipelineDynamicStateCreateInfo dynamic_state = VkPipelineDynamicStateCreateInfo.calloc().sType$Default();
         private final VkPipelineDepthStencilStateCreateInfo depth_stencil_state = VkPipelineDepthStencilStateCreateInfo.calloc().sType$Default();
         private final VkPipelineMultisampleStateCreateInfo multi_sample_state = VkPipelineMultisampleStateCreateInfo.calloc().sType$Default();
+        private final  VkPipelineRenderingCreateInfoKHR rendering_info = VkPipelineRenderingCreateInfoKHR.calloc().sType$Default();
         private final Shader[] shader_stages;
         private final PipelineLayout layout;
+        @Nullable
         private final RenderPass render_pass;
 
         private final ByteBuffer entry_name = MemoryUtil.memUTF8("main");
@@ -130,7 +132,7 @@ public class Pipeline extends LibCleanable {
          * @param layout_in        The pipeline layout associated with the pipeline.
          * @param render_pass_in   The render pass associated with the pipeline.
          */
-        public PipelineBuilder(@Nonnull Shader[] shader_stages_in, @Nonnull PipelineLayout layout_in, @Nonnull RenderPass render_pass_in,Boolean will_define_dynamic_state) {
+        public PipelineBuilder(@Nonnull Shader[] shader_stages_in, @Nonnull PipelineLayout layout_in, @Nullable RenderPass render_pass_in,boolean will_define_dynamic_state) {
             super();
             shader_stages = shader_stages_in;
             layout = layout_in;
@@ -170,7 +172,7 @@ public class Pipeline extends LibCleanable {
          * @param binding The vertex input binding descriptions.
          * @return This PipelineBuilder for method chaining.
          */
-        public PipelineBuilder setVertexInputBinding(@Nonnull VkVertexInputBindingDescription.Buffer binding) {
+        public PipelineBuilder setVertexInputBinding(@Nullable VkVertexInputBindingDescription.Buffer binding) {
             vertex_input_state.pVertexBindingDescriptions(binding);
             return this;
         }
@@ -181,7 +183,7 @@ public class Pipeline extends LibCleanable {
          * @param attribute The vertex input attribute descriptions.
          * @return This PipelineBuilder for method chaining.
          */
-        public PipelineBuilder setVertexInputAttribute(@Nonnull VkVertexInputAttributeDescription.Buffer attribute) {
+        public PipelineBuilder setVertexInputAttribute(@Nullable VkVertexInputAttributeDescription.Buffer attribute) {
             vertex_input_state.pVertexAttributeDescriptions(attribute);
             return this;
         }
@@ -381,6 +383,14 @@ public class Pipeline extends LibCleanable {
             return this;
         }
 
+        public PipelineBuilder setDynamicPipelineRenderingState(IntBuffer colour_formats, int depth_format, int stencil_format) {
+            rendering_info.colorAttachmentCount(colour_formats.remaining());
+            rendering_info.pColorAttachmentFormats(colour_formats);
+            rendering_info.depthAttachmentFormat(depth_format);
+            rendering_info.stencilAttachmentFormat(stencil_format);
+            return this;
+        }
+
         /**
          * Enables or disables alpha-to-one for multisampling.
          *
@@ -437,11 +447,18 @@ public class Pipeline extends LibCleanable {
         protected VkGraphicsPipelineCreateInfo.Buffer buildGraphicsPipeline(@Nonnull MemoryStack stack) {
             VkPipelineShaderStageCreateInfo.Buffer shaders = getShaderInfo(entry_name);
             //Fixme: this leaks memory VkPipelineShaderStageCreateInfo.Buffer
-            return VkGraphicsPipelineCreateInfo.calloc(1, stack).sType$Default().layout(layout.getLayout().handle())
-                    .renderPass(render_pass.getRenderPass().handle()).pVertexInputState(vertex_input_state)
+            var  pipline =VkGraphicsPipelineCreateInfo.calloc(1, stack).sType$Default()
+                    .layout(layout.getLayout().handle()).pVertexInputState(vertex_input_state)
                     .pInputAssemblyState(input_assembly_state).pRasterizationState(rasterization_state)
                     .pColorBlendState(color_blend_state).pMultisampleState(multi_sample_state).pViewportState(viewport_state)
                     .pDepthStencilState(depth_stencil_state).pStages(shaders).pDynamicState(dynamic_state);
+            if(render_pass != null) {
+                pipline.renderPass(render_pass.getRenderPass().handle());
+            } else {
+                pipline.renderPass(VK_NULL_HANDLE);
+                pipline.pNext(rendering_info);
+            }
+            return pipline;
         }
 
         /**
@@ -469,6 +486,7 @@ public class Pipeline extends LibCleanable {
             dynamic_state.free();
             depth_stencil_state.free();
             multi_sample_state.free();
+            rendering_info.free();
             MemoryUtil.memFree(entry_name);
             for (var s : shader_stages) {
                 s.free();

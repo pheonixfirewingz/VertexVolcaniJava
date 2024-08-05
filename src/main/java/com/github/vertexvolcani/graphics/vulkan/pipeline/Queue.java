@@ -6,8 +6,8 @@ package com.github.vertexvolcani.graphics.vulkan.pipeline;
  * Copyright Luke Shore (c) 2023, 2024
  */
 import com.github.vertexvolcani.graphics.vulkan.Device;
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
+import com.github.vertexvolcani.util.Nonnull;
+import com.github.vertexvolcani.util.Nullable;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkQueue;
@@ -21,11 +21,11 @@ import static org.lwjgl.vulkan.VK10.*;
 public final class Queue {
     private final VkQueue queue;
 
-    public Queue(Device device,int family,int index) {
+    public Queue(@Nonnull Device device, int family, int index) {
         queue = device.getDeviceQueue(family,index);
     }
 
-    public int submit(PointerBuffer command_buffers, IntBuffer wait_dst_stage_mask, @Nonnull Semaphore[] wait_semaphores, Semaphore[] signal_semaphores, @Nullable Fence fence){
+    public int submit(@Nonnull PointerBuffer command_buffers, IntBuffer wait_dst_stage_mask, @Nonnull Semaphore[] wait_semaphores, Semaphore[] signal_semaphores, @Nullable Fence fence){
         try(MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer wait_semaphores_buffer = stack.mallocLong(wait_semaphores.length);
             LongBuffer signal_semaphores_buffer = stack.mallocLong(signal_semaphores.length);

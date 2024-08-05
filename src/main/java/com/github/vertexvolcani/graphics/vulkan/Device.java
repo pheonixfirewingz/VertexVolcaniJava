@@ -8,8 +8,9 @@ package com.github.vertexvolcani.graphics.vulkan;
 
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
+
+import com.github.vertexvolcani.util.Nonnull;
+import com.github.vertexvolcani.util.Nullable;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.NativeType;
@@ -20,21 +21,27 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
 import static org.lwjgl.system.MemoryUtil.NULL;
+import static org.lwjgl.vulkan.KHRCreateRenderpass2.VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRDepthStencilResolve.VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRDynamicRendering.VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRSynchronization2.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.VK_ERROR_OUT_OF_POOL_MEMORY;
 
-// Code adapted from https://github.com/LWJGL/lwjgl3/blob/master/modules/samples/src/test/java/org/lwjgl/demo/vulkan/HelloVulkan.java
 public class Device extends LibCleanable {
     private final VkDevice device;
     private final VkPhysicalDevice physical_device;
     private final VkPhysicalDeviceProperties properties = VkPhysicalDeviceProperties.calloc();
     private final boolean debug;
+    @Nullable
+    private final  DeviceFeaturesToEnabled features;
     private int graphics_index;
     private int result = VK_SUCCESS;
 
-    public Device(@Nonnull Instance instance) {
+    public Device(@Nonnull Instance instance, @Nullable DeviceFeaturesToEnabled features_in) {
         debug = instance.getDebug();
+        features = features_in;
         Log.print(Log.Severity.DEBUG, "Vulkan: creating Device...");
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PointerBuffer handle = stack.mallocPointer(1);
@@ -65,7 +72,7 @@ public class Device extends LibCleanable {
             }
 
             PointerBuffer extension_names = stack.mallocPointer(64);
-            ByteBuffer KHR_swapchain = stack.ASCII(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+            ByteBuffer KHR_swap_chain = stack.ASCII(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
             if (ip.get(0) > 0) {
                 VkExtensionProperties.Buffer device_extensions = VkExtensionProperties.malloc(ip.get(0), stack);
                 if (vkEnumerateDeviceExtensionProperties(physical_device, (String) null, ip, device_extensions) != VK_SUCCESS) {
@@ -77,15 +84,21 @@ public class Device extends LibCleanable {
                     device_extensions.position(i);
                     if (VK_KHR_SWAPCHAIN_EXTENSION_NAME.equals(device_extensions.extensionNameString())) {
                         found_swapchain = true;
-                        extension_names.put(KHR_swapchain);
+                        extension_names.put(KHR_swap_chain);
                     }
                 }
+            }
+
+            if(features != null && features.dynamic_rendering) {
+                extension_names.put(stack.UTF8(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME));
+                extension_names.put(stack.UTF8(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME));
+                extension_names.put(stack.UTF8(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME));
+                extension_names.put(stack.UTF8(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME));
             }
 
             if (!found_swapchain) {
                 throw new IllegalStateException("vkEnumerateDeviceExtensionProperties failed to find the " + VK_KHR_SWAPCHAIN_EXTENSION_NAME + " extension.");
             }
-
 
             vkGetPhysicalDeviceQueueFamilyProperties(physical_device, ip, null);
 
@@ -120,24 +133,31 @@ public class Device extends LibCleanable {
                     .queueFamilyIndex(graphics_index)
                     .pQueuePriorities(stack.floats(0.0f));
 
-            VkPhysicalDeviceFeatures features = VkPhysicalDeviceFeatures.calloc(stack);
+            VkPhysicalDeviceFeatures features_ = VkPhysicalDeviceFeatures.calloc(stack);
             if (gpu_features.shaderClipDistance()) {
-                features.shaderClipDistance(true);
+                features_.shaderClipDistance(true);
             }
-
 
             extension_names.flip();
             VkDeviceCreateInfo pCreateInfo = VkDeviceCreateInfo.calloc(stack)
                     .sType$Default()
-                    .pNext(NULL)
                     .flags(0)
                     .pQueueCreateInfos(queue)
                     .ppEnabledLayerNames(null)
                     .ppEnabledExtensionNames(extension_names)
-                    .pEnabledFeatures(features);
+                    .pEnabledFeatures(features_);
+
+            VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures = VkPhysicalDeviceDynamicRenderingFeaturesKHR.calloc(stack)
+                    .sType$Default()
+                    .dynamicRendering(true);
+
+            if(features != null && features.dynamic_rendering){
+                pCreateInfo.pNext(dynamicRenderingFeatures);
+            } else {
+                pCreateInfo.pNext(VK_NULL_HANDLE);
+            }
 
             vkGetPhysicalDeviceProperties(physical_device, properties);
-
             // Create Vulkan device
             if (vkCreateDevice(physical_device, pCreateInfo, null, handle) != VK_SUCCESS) {
                 Log.print(Log.Severity.ERROR, "Vulkan Error: could not make Vulkan device");
@@ -148,7 +168,7 @@ public class Device extends LibCleanable {
         Log.print(Log.Severity.DEBUG, "Vulkan: device setup done");
     }
 
-    private static VkPhysicalDevice selectPhysicalDevice(@Nonnull VkInstance instance) {
+    private VkPhysicalDevice selectPhysicalDevice(@Nonnull VkInstance instance) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             // Enumerate physical devices
             IntBuffer pPhysicalDeviceCount = stack.mallocInt(1);
@@ -179,18 +199,18 @@ public class Device extends LibCleanable {
         }
     }
 
-    private static int getDeviceType(@Nonnull VkPhysicalDevice physicalDevice) {
+    private int getDeviceType(@Nonnull VkPhysicalDevice physicalDevice) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
+            int device_modifier = 0;
             VkPhysicalDeviceProperties deviceProperties = VkPhysicalDeviceProperties.calloc(stack);
             vkGetPhysicalDeviceProperties(physicalDevice, deviceProperties);
-
             // Prioritize integrated GPUs over CPU-based and dedicated GPUs over integrated ones
             if (deviceProperties.deviceType() == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
-                return 0; // Integrated GPU
+                return device_modifier; // Integrated GPU
             } else if (deviceProperties.deviceType() == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-                return 1; // Dedicated GPU
+                return 1 + device_modifier; // Dedicated GPU
             } else {
-                return 2; // Other (CPU-based, etc.)
+                return 2 + device_modifier; // Other (CPU-based, etc.)
             }
         }
     }
@@ -600,4 +620,7 @@ public class Device extends LibCleanable {
     public VkPhysicalDeviceLimits getLimits() {
         return properties.limits();
     }
+
+
+    public record DeviceFeaturesToEnabled(boolean dynamic_rendering) { }
 }

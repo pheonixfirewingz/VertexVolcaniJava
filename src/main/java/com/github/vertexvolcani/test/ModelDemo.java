@@ -1,4 +1,4 @@
-package com.github.vertexvolcani;
+package com.github.vertexvolcani.test;
 /* Vertex Volcani - LICENCE
  *
  * GNU Lesser General Public License Version 3.0
@@ -6,15 +6,16 @@ package com.github.vertexvolcani;
  * Copyright Luke Shore (c) 2022, 2023
  */
 
-import com.github.vertexvolcani.graphics.Window;
+import com.github.vertexvolcani.graphics.VVWindow;
 import com.github.vertexvolcani.graphics.events.KeyEvent;
 import com.github.vertexvolcani.graphics.vulkan.*;
 import com.github.vertexvolcani.graphics.vulkan.buffer.*;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.*;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.descriptors.*;
-import com.github.vertexvolcani.util.Camera;
+import com.github.vertexvolcani.test.util.Camera;
 import com.github.vertexvolcani.util.Log;
-import com.github.vertexvolcani.util.Vertices;
+import com.github.vertexvolcani.util.Time;
+import com.github.vertexvolcani.test.util.Vertices;
 import de.javagl.obj.Obj;
 import de.javagl.obj.ObjData;
 import de.javagl.obj.ObjReader;
@@ -38,7 +39,7 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class ModelDemo {
     private final Camera camera = new Camera();
-    private Window window;
+    private VVWindow window;
     private FrameBuffer[] frame_buffers;
     private CommandBuffer[] command_buffers;
     private Buffer uniform_buffer;
@@ -52,7 +53,7 @@ public class ModelDemo {
     private FrameBuffer[] createFrameBuffers(Device device, Surface surface, SwapChain SwapChain, RenderPass renderPass) {
         FrameBuffer[] frame_buffers = new FrameBuffer[SwapChain.getImages().length];
         for (int i = 0; i < SwapChain.getImages().length; i++) {
-            frame_buffers[i] = new FrameBuffer(device, renderPass, new Image[]{SwapChain.getImagesViews()[i]}, surface);
+            frame_buffers[i] = new FrameBuffer(device, renderPass, new Image[]{SwapChain.getImages()[i]}, surface);
         }
         return frame_buffers;
     }
@@ -138,7 +139,7 @@ public class ModelDemo {
             VkOffset2D offset = VkOffset2D.calloc(stack);
 
             for (int i = 0; i < renderCommandBuffers.length; ++i) {
-                if (renderCommandBuffers[i].begin(0) != VK_SUCCESS) {
+                if (renderCommandBuffers[i].begin(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to begin render command buffer");
                     throw new IllegalStateException("Failed to begin render command buffer");
                 }
@@ -189,7 +190,15 @@ public class ModelDemo {
 
     public void run() throws Exception {
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            window = new Window(800, 600, "GLFW Vulkan Demo", (event) -> {
+            VVWindow.PrimeGLFW();
+            // Create the Vulkan instance
+            final Instance instance = new Instance(true, "TriangleDemo");
+            final Device device = new Device(instance,new Device.DeviceFeaturesToEnabled(false));
+            SwapChain.SwapChainBuilder builder = new SwapChain.SwapChainBuilder();
+            builder.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+                    .imageArrayLayers(1).presentMode(VK_PRESENT_MODE_FIFO_KHR)
+                    .clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
+            window = new VVWindow(800, 600, "GLFW Vulkan Demo", (event) -> {
                 if (event.getID() == KeyEvent.ID) {
                     KeyEvent keyEvent = (KeyEvent) event;
                     if (keyEvent.key == GLFW_KEY_W) {
@@ -206,12 +215,7 @@ public class ModelDemo {
                         camera.update(0, 0, 0, 0, -0.1f, 0);
                     }
                 }
-            });
-            // Create the Vulkan instance
-            final Instance instance = new Instance(true, "TriangleDemo");
-            final Device device = new Device(instance);
-            final VmaAllocator allocator = new VmaAllocator(instance, device);
-            final Surface surface = new Surface(window, instance, device);
+            }, instance, device, builder);
             // Create static Vulkan resources
             DescriptorPoolSize [] descriptorPoolSizes = {
                     new DescriptorPoolSize(DescriptorType.UNIFORM_BUFFER, 3),
@@ -225,20 +229,12 @@ public class ModelDemo {
             }
             final CommandPool commandPool = new CommandPool(device, device.getGraphicsIndex(), true);
             final Queue queue = new Queue(device, device.getGraphicsIndex(), 0);
-            final RenderPass renderPass = createRenderPass(device, surface);
-            final Vertices vertices = createVertices(allocator);
+            final RenderPass renderPass = createRenderPass(device, window.getSurface());
+            final Vertices vertices = createVertices(window.getAllocator());
             final Pipeline pipeline = createPipeline(device, renderPass, vertices, descriptorLayout);
-            SwapChain.SwapChainBuilder builder = new SwapChain.SwapChainBuilder();
-            builder.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-                    .imageArrayLayers(1).presentMode(VK_PRESENT_MODE_FIFO_KHR)
-                    .clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
-
-            final SwapChain SwapChain = new SwapChain(device, surface, allocator, builder);
 
             final class SwapChainHelper {
                 void recreate() {
-                    SwapChain.recreate();
-                    queue.waitIdle();
                     if (frame_buffers != null) {
                         for (var frame_buffer : frame_buffers) {
                             try {
@@ -249,15 +245,14 @@ public class ModelDemo {
                         }
                         frame_buffers = null;
                     }
-                    frame_buffers = createFrameBuffers(device, surface, SwapChain, renderPass);
+                    frame_buffers = createFrameBuffers(device,window.getSurface(),window.getSwapChain(), renderPass);
                     if (command_buffers != null) {
-                        for (var c : command_buffers) {
+                        for (var c:command_buffers){
                             c.close();
                         }
                         command_buffers = null;
                         commandPool.reset(0);
                     }
-
                     if(uniform_buffer != null) {
                         uniform_buffer.close();
                     }
@@ -265,7 +260,7 @@ public class ModelDemo {
                         final Matrix4f model = new Matrix4f().identity().scale(1.0f);
                         FloatBuffer modelBuffer = MemoryUtil.memCallocFloat(16);
                         modelBuffer = model.get(modelBuffer);
-                        uniform_buffer = new UniformBuffer(allocator, (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU).write(modelBuffer);
+                        uniform_buffer = new UniformBuffer(window.getAllocator(), (Float.BYTES * 16), false, VmaMemoryUsage.CPU_TO_GPU).write(modelBuffer);
                         MemoryUtil.memFree(modelBuffer);
                         for (int i = 0; i < 3; i++) {
                             VkDescriptorBufferInfo.Buffer buffer_info = VkDescriptorBufferInfo.calloc(1);
@@ -276,10 +271,11 @@ public class ModelDemo {
                             buffer_info.free();
                         }
                     }
-                    command_buffers = createCommandBuffers(device, surface, commandPool, renderPass, pipeline, vertices, descriptorSets);
+                    command_buffers = createCommandBuffers(device, window.getSurface(), commandPool, renderPass, pipeline, vertices, descriptorSets);
                 }
             }
             final SwapChainHelper swap_chain_helper = new SwapChainHelper();
+            window.refreshSwapChain();
             swap_chain_helper.recreate();
             final IntBuffer pImageIndex = stack.callocInt(1);
             final PointerBuffer pCommandBuffers = stack.callocPointer(1);
@@ -288,19 +284,21 @@ public class ModelDemo {
             final IntBuffer pWaitDstStageMask = stack.callocInt(1);
 
             pWaitDstStageMask.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+            final Time.Limiter limiter = new Time.Limiter(60);
 
             while (!window.ShouldClose()) {
                 window.poll();
-                SwapChain.acquireNextImage(null, image_acquired, pImageIndex);
+                window.getSwapChain().acquireNextImage(null, image_acquired, pImageIndex);
                 pCommandBuffers.put(0, command_buffers[pImageIndex.get(0)].getCommandBuffer());
                 if (queue.submit(pCommandBuffers, pWaitDstStageMask, new Semaphore[]{image_acquired}, new Semaphore[]{render_complete}, null) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to submit render queue");
                     throw new IllegalStateException("Failed to submit render queue");
                 }
-                if (SwapChain.queuePresent(queue.getQueue(), new Semaphore[]{render_complete}, pImageIndex) != VK_SUCCESS) {
+                if (window.getSwapChain().queuePresent(queue.getQueue(), new Semaphore[]{render_complete}, pImageIndex) != VK_SUCCESS) {
                     swap_chain_helper.recreate();
                 }
                 device.waitIdle();
+                //limiter.timeControl();
             }
             image_acquired.close();
             render_complete.close();
@@ -320,9 +318,6 @@ public class ModelDemo {
             vertices.index_buffer().close();
             vertices.attributeDescriptions().close();
             vertices.bindingDescriptor().close();
-            SwapChain.close();
-            surface.close();
-            allocator.close();
             device.close();
             instance.close();
             window.close();

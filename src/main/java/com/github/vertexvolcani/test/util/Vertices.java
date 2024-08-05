@@ -1,4 +1,4 @@
-package com.github.vertexvolcani.util;
+package com.github.vertexvolcani.test.util;
 
 import com.github.vertexvolcani.graphics.vulkan.buffer.Buffer;
 import org.lwjgl.vulkan.VkVertexInputAttributeDescription;

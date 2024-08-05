@@ -1,11 +1,11 @@
-package com.github.vertexvolcani;
+package com.github.vertexvolcani.test;
 
-import com.github.vertexvolcani.graphics.ExtendedWindow;
+import com.github.vertexvolcani.graphics.VVWindow;
 import com.github.vertexvolcani.graphics.vulkan.*;
 import com.github.vertexvolcani.graphics.vulkan.buffer.*;
 import com.github.vertexvolcani.graphics.vulkan.pipeline.*;
 import com.github.vertexvolcani.util.Log;
-import com.github.vertexvolcani.util.Vertices;
+import com.github.vertexvolcani.test.util.Vertices;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -28,10 +28,10 @@ public class TriangleDemo {
         demo.run();
     }
 
-    private FrameBuffer[] createFrameBuffers(Device device,ExtendedWindow window, RenderPass renderPass) {
+    private FrameBuffer[] createFrameBuffers(Device device,VVWindow window, RenderPass renderPass) {
         FrameBuffer[] frame_buffers = new FrameBuffer[window.getSwapChain().getImages().length];
         for (int i = 0; i < window.getSwapChain().getImages().length; i++) {
-            frame_buffers[i] = new FrameBuffer(device, renderPass, new Image[]{window.getSwapChain().getImagesViews()[i]}, window.getSurface());
+            frame_buffers[i] = new FrameBuffer(device, renderPass, new Image[]{window.getSwapChain().getImages()[i]}, window.getSurface());
         }
         return frame_buffers;
     }
@@ -109,7 +109,7 @@ public class TriangleDemo {
             VkOffset2D offset = VkOffset2D.calloc(stack);
 
             for (int i = 0; i < renderCommandBuffers.length; ++i) {
-                if (renderCommandBuffers[i].begin(0) != VK_SUCCESS) {
+                if (renderCommandBuffers[i].begin(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to begin render command buffer");
                     throw new IllegalStateException("Failed to begin render command buffer");
                 }
@@ -147,14 +147,14 @@ public class TriangleDemo {
 
     public void run() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            ExtendedWindow.PrimeGLFW();
+            VVWindow.PrimeGLFW();
             SwapChain.SwapChainBuilder builder = new SwapChain.SwapChainBuilder();
             builder.imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).imageArrayLayers(1)
                     .presentMode(VK_PRESENT_MODE_FIFO_KHR).clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
             // Create the Vulkan instance
             final Instance instance = new Instance(true, "TriangleDemo");
-            final Device device = new Device(instance);
-            final ExtendedWindow window = new ExtendedWindow(800, 600, "GLFW Vulkan Demo", (event) -> {}, instance, device, builder);
+            final Device device = new Device(instance,new Device.DeviceFeaturesToEnabled(false));
+            final VVWindow window = new VVWindow(800, 600, "GLFW Vulkan Demo", (event) -> {}, instance, device, builder);
 
             // Create static Vulkan resources
             final CommandPool commandPool = new CommandPool(device, device.getGraphicsIndex(), true);

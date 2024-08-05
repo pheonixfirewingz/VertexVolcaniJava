@@ -35,6 +35,10 @@ public class Image extends LibCleanable {
     private final VmaAllocator allocator;
 
     /**
+     * dose Image own the main image
+     */
+    private final boolean owned;
+    /**
      * The handle to the Vulkan image.
      */
     private final DeviceHandle handle;
@@ -57,6 +61,7 @@ public class Image extends LibCleanable {
      * @param allocator_in The Vulkan Memory Allocator.
      */
     public Image(VmaAllocator allocator_in, ImageInformation image_information, @NativeType("VkDeviceSize") long size_in, @NativeType("VmaMemoryUsage") int vma_usage) {
+        owned = true;
         allocator = allocator_in;
         size = size_in;
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -96,7 +101,8 @@ public class Image extends LibCleanable {
      *
      * @param allocator_in The Vulkan Memory Allocator.
      */
-    public Image(VmaAllocator allocator_in, ImageInformation image_information, Image image) {
+    public Image(VmaAllocator allocator_in, ImageInformation image_information, Image image,boolean owned_in) {
+        owned = owned_in;
         allocator = allocator_in;
         size = 0;
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -119,11 +125,12 @@ public class Image extends LibCleanable {
      * @param allocator_in The Vulkan Memory Allocator.
      */
     public Image(VmaAllocator allocator_in, ImageInformation image_information, long image) {
+        owned = false;
         allocator = allocator_in;
         size = 0;
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer pBuffer = stack.callocLong(1);
-            handle = new DeviceHandle(allocator.getDev(), VK_NULL_HANDLE);
+            handle = new DeviceHandle(allocator.getDev(), image);
             VkImageViewCreateInfo view_create_info = VkImageViewCreateInfo.calloc(stack).sType$Default().image(image).flags(0);
             view_create_info.viewType(image_information.view_type).format(image_information.format).subresourceRange(image_information.subresource_range);
             view = handle.device().createImageView(view_create_info);
@@ -238,7 +245,7 @@ public class Image extends LibCleanable {
     public final void free() {
         handle.device().waitIdle();
         handle.device().destroyImageView(view);
-        if (allocation != VK_NULL_HANDLE){
+        if (allocation != VK_NULL_HANDLE && owned) {
             vmaDestroyImage(allocator.getVmaAllocator(), handle.handle(), allocation);
         }
     }

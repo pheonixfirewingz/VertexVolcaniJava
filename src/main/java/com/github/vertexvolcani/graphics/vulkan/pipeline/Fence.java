@@ -10,7 +10,7 @@ import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nonnull;
+import com.github.vertexvolcani.util.Nonnull;
 import org.lwjgl.vulkan.VkFenceCreateInfo;
 
 import static org.lwjgl.vulkan.VK10.VK_FENCE_CREATE_SIGNALED_BIT;

@@ -10,7 +10,7 @@ import com.github.vertexvolcani.graphics.vulkan.Device;
 import com.github.vertexvolcani.graphics.vulkan.DeviceHandle;
 import com.github.vertexvolcani.util.LibCleanable;
 import com.github.vertexvolcani.util.Log;
-import jakarta.annotation.Nonnull;
+import com.github.vertexvolcani.util.Nonnull;
 import org.lwjgl.vulkan.VkPipelineCacheCreateInfo;
 
 import static org.lwjgl.vulkan.VK10.VK_SUCCESS;

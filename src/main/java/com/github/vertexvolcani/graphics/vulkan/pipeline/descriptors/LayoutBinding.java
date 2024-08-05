@@ -1,7 +1,7 @@
 package com.github.vertexvolcani.graphics.vulkan.pipeline.descriptors;
 
 import com.github.vertexvolcani.graphics.vulkan.pipeline.ShaderType;
-import jakarta.annotation.Nullable;
+import com.github.vertexvolcani.util.Nullable;
 
 import java.nio.LongBuffer;
 

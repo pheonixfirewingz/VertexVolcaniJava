@@ -147,14 +147,8 @@ public class ModelDemo {
                 renderCommandBuffers[i].beginRenderPass(renderPass, extent, offset, frame_buffers[i], VK_SUBPASS_CONTENTS_INLINE);
 
                 VkExtent2D size = surface.getSurfaceSize();
-                VkViewport.Buffer viewport = VkViewport.calloc(1, stack).height(size.height()).width(size.width()).minDepth(0.0f).maxDepth(1.0f);
-                renderCommandBuffers[i].setViewport(0, viewport);
-
-                VkRect2D.Buffer scissor = VkRect2D.calloc(1, stack);
-
-                scissor.extent().set(surface.getSurfaceSize());
-                scissor.offset().set(0, 0);
-                renderCommandBuffers[i].setScissor(0, scissor);
+                command_buffers[i].setViewport(size.width(), size.height(),0.0f,1.0f);
+                command_buffers[i].setScissor(0, 0,size.width(), size.height());
 
                 renderCommandBuffers[i].bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipeline());
                 LongBuffer pDescriptorSets = stack.callocLong(1);

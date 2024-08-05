@@ -117,17 +117,8 @@ public class DynamicTriangleDemo {
                 command_buffers[i].beginDynamicRendering(window_size.get(), 1, 0, colorAttachment, null, null);
                 // Set viewport and scissor
                 VkExtent2D size = surface.getSurface().getSurfaceSize();
-                VkViewport.Buffer viewport = VkViewport.calloc(1, stack)
-                        .height(size.height())
-                        .width(size.width())
-                        .minDepth(0.0f)
-                        .maxDepth(1.0f);
-                command_buffers[i].setViewport(0, viewport);
-
-                VkRect2D.Buffer scissor = VkRect2D.calloc(1, stack);
-                window_size.extent().set(surface.getSurface().getSurfaceSize());
-                window_size.offset().set(0, 0);
-                command_buffers[i].setScissor(0, scissor);
+                command_buffers[i].setViewport(size.width(), size.height(),0.0f,1.0f);
+                command_buffers[i].setScissor(0, 0,size.width(), size.height());
 
                 // Bind pipeline
                 command_buffers[i].bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipeline());
@@ -168,7 +159,7 @@ public class DynamicTriangleDemo {
             // Create the Vulkan instance
             final Instance instance = new Instance(true, "TriangleDemo");
             final Device device = new Device(instance, new Device.DeviceFeaturesToEnabled(true));
-            final VVWindow window = new VVWindow(800, 600, "GLFW Vulkan Demo", (event) -> {
+            final VVWindow window = new VVWindow(800, 600, "GLFW Vulkan Demo - Dynamic Triangle", (event) -> {
             }, instance, device, builder);
 
             // Create static Vulkan resources

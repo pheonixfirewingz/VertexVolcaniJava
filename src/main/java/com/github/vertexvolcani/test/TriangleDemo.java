@@ -23,12 +23,13 @@ import static org.lwjgl.vulkan.VK11.*;
 public class TriangleDemo {
     private FrameBuffer[] frame_buffers;
     private CommandBuffer[] command_buffers;
+
     public static void main(String[] args) {
         TriangleDemo demo = new TriangleDemo();
         demo.run();
     }
 
-    private FrameBuffer[] createFrameBuffers(Device device,VVWindow window, RenderPass renderPass) {
+    private FrameBuffer[] createFrameBuffers(Device device, VVWindow window, RenderPass renderPass) {
         FrameBuffer[] frame_buffers = new FrameBuffer[window.getSwapChain().getImages().length];
         for (int i = 0; i < window.getSwapChain().getImages().length; i++) {
             frame_buffers[i] = new FrameBuffer(device, renderPass, new Image[]{window.getSwapChain().getImages()[i]}, window.getSurface());
@@ -36,7 +37,7 @@ public class TriangleDemo {
         return frame_buffers;
     }
 
-    private RenderPass createRenderPass(Device device,Surface surface) {
+    private RenderPass createRenderPass(Device device, Surface surface) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkAttachmentDescription.Buffer attachments = VkAttachmentDescription.calloc(1, stack).format(surface.getColourFormat())
                     .samples(VK_SAMPLE_COUNT_1_BIT).loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR).storeOp(VK_ATTACHMENT_STORE_OP_STORE)
@@ -73,13 +74,13 @@ public class TriangleDemo {
         }
     }
 
-    private Pipeline createPipeline(Device device,RenderPass renderPass, Vertices vertices) {
+    private Pipeline createPipeline(Device device, RenderPass renderPass, Vertices vertices) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PipelineLayout layout = new PipelineLayout(device, null, null);
             Shader[] shaders = new Shader[2];
             shaders[0] = new Shader(device, "shader/triangle.vert", ShaderType.VERTEX);
             shaders[1] = new Shader(device, "shader/triangle.frag", ShaderType.FRAGMENT);
-            try(Pipeline.PipelineBuilder builder = new Pipeline.PipelineBuilder(shaders, layout, renderPass,true)) {
+            try (Pipeline.PipelineBuilder builder = new Pipeline.PipelineBuilder(shaders, layout, renderPass, true)) {
                 VkPipelineColorBlendAttachmentState.Buffer colorWriteMask = VkPipelineColorBlendAttachmentState.calloc(1, stack).colorWriteMask(0xF); // <- RGBA
                 builder.setColourBlendAttachments(colorWriteMask);
                 VkStencilOpState op = VkStencilOpState.calloc(stack);
@@ -98,50 +99,42 @@ public class TriangleDemo {
         }
     }
 
-    private CommandBuffer[] createCommandBuffers(Device device,Surface surface,CommandPool commandPool, RenderPass renderPass, Pipeline pipeline, Buffer buffer) {
-        CommandBuffer[] renderCommandBuffers = new CommandBuffer[frame_buffers.length];
+    private void createCommandBuffers(Device device, VVWindow surface, CommandPool commandPool, RenderPass renderPass, Pipeline pipeline, Buffer buffer) {
+        var img_view = surface.getSwapChain().getImages();
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            for (int i = 0; i < frame_buffers.length; i++) {
-                renderCommandBuffers[i] = new CommandBuffer(device, commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-            }
-
-            VkExtent2D extent = VkExtent2D.calloc(stack).set(surface.getSurfaceSize());
+            command_buffers = CommandBuffer.createCommandBuffers(device, commandPool, img_view.length, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+            VkExtent2D extent = VkExtent2D.calloc(stack).set(surface.getSurface().getSurfaceSize());
             VkOffset2D offset = VkOffset2D.calloc(stack);
 
-            for (int i = 0; i < renderCommandBuffers.length; ++i) {
-                if (renderCommandBuffers[i].begin(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT) != VK_SUCCESS) {
+            for (int i = 0; i < command_buffers.length; ++i) {
+                if (command_buffers[i].begin(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to begin render command buffer");
                     throw new IllegalStateException("Failed to begin render command buffer");
                 }
-                
-                renderCommandBuffers[i].beginRenderPass(renderPass,extent,offset, frame_buffers[i], VK_SUBPASS_CONTENTS_INLINE);
-                
-                VkExtent2D size = surface.getSurfaceSize();
-                VkViewport.Buffer viewport = VkViewport.calloc(1, stack).height(size.height()).width(size.width()).minDepth(0.0f).maxDepth(1.0f);
-                renderCommandBuffers[i].setViewport(0, viewport);
 
-                VkRect2D.Buffer scissor = VkRect2D.calloc(1, stack);
-                scissor.extent().set(surface.getSurfaceSize());
-                scissor.offset().set(0, 0);
-                renderCommandBuffers[i].setScissor(0, scissor);
+                command_buffers[i].beginRenderPass(renderPass, extent, offset, frame_buffers[i], VK_SUBPASS_CONTENTS_INLINE);
 
-                renderCommandBuffers[i].bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipeline());
+                VkExtent2D size = surface.getSurface().getSurfaceSize();
+                command_buffers[i].setViewport(size.width(), size.height(), 0.0f, 1.0f);
+                command_buffers[i].setScissor(0, 0, size.width(), size.height());
+                command_buffers[i].setScissor(0, 0, size.width(), size.height());
+
+                command_buffers[i].bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipeline());
 
                 LongBuffer offsets = stack.callocLong(1);
                 offsets.put(0, 0L);
                 LongBuffer pBuffers = stack.callocLong(1);
                 pBuffers.put(0, buffer.getBuffer().handle());
-                renderCommandBuffers[i].bindVertexBuffers(0, pBuffers, offsets);
-                renderCommandBuffers[i].draw(3, 1, 0, 0);
-                renderCommandBuffers[i].endRenderPass();
+                command_buffers[i].bindVertexBuffers(0, pBuffers, offsets);
+                command_buffers[i].draw(3, 1, 0, 0);
+                command_buffers[i].endRenderPass();
 
-                if (renderCommandBuffers[i].end() != VK_SUCCESS) {
+                if (command_buffers[i].end() != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to begin render command buffer");
                     throw new IllegalStateException("Failed to begin render command buffer");
                 }
             }
         }
-        return renderCommandBuffers;
     }
 
     public void run() {
@@ -152,15 +145,16 @@ public class TriangleDemo {
                     .presentMode(VK_PRESENT_MODE_FIFO_KHR).clipped().compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
             // Create the Vulkan instance
             final Instance instance = new Instance(true, "TriangleDemo");
-            final Device device = new Device(instance,new Device.DeviceFeaturesToEnabled(false));
-            final VVWindow window = new VVWindow(800, 600, "GLFW Vulkan Demo", (event) -> {}, instance, device, builder);
+            final Device device = new Device(instance, new Device.DeviceFeaturesToEnabled(false));
+            final VVWindow window = new VVWindow(800, 600, "GLFW Vulkan Demo - triangle", (event) -> {
+            }, instance, device, builder);
 
             // Create static Vulkan resources
             final CommandPool commandPool = new CommandPool(device, device.getGraphicsIndex(), true);
-            final Queue queue = new Queue(device,device.getGraphicsIndex(), 0);
-            final RenderPass renderPass = createRenderPass(device,window.getSurface());
+            final Queue queue = new Queue(device, device.getGraphicsIndex(), 0);
+            final RenderPass renderPass = createRenderPass(device, window.getSurface());
             final Vertices vertices = createVertices(window.getAllocator());
-            final Pipeline pipeline = createPipeline(device,renderPass, vertices);
+            final Pipeline pipeline = createPipeline(device, renderPass, vertices);
 
             final class SwapChainHelper {
                 void recreate() {
@@ -174,15 +168,15 @@ public class TriangleDemo {
                         }
                         frame_buffers = null;
                     }
-                    frame_buffers = createFrameBuffers(device,window, renderPass);
+                    frame_buffers = createFrameBuffers(device, window, renderPass);
                     if (command_buffers != null) {
-                        for (var c:command_buffers){
+                        for (var c : command_buffers) {
                             c.close();
                         }
                         command_buffers = null;
                         commandPool.reset(0);
                     }
-                    command_buffers = createCommandBuffers(device,window.getSurface(),commandPool, renderPass, pipeline, vertices.buffer());
+                    createCommandBuffers(device, window, commandPool, renderPass, pipeline, vertices.buffer());
                 }
             }
             final SwapChainHelper swap_chain_helper = new SwapChainHelper();
@@ -200,7 +194,7 @@ public class TriangleDemo {
                 window.poll();
                 window.getSwapChain().acquireNextImage(null, image_acquired, pImageIndex);
                 pCommandBuffers.put(0, command_buffers[pImageIndex.get(0)].getCommandBuffer());
-                if (queue.submit(pCommandBuffers,pWaitDstStageMask,new Semaphore[]{image_acquired},new Semaphore[]{render_complete},null) != VK_SUCCESS) {
+                if (queue.submit(pCommandBuffers, pWaitDstStageMask, new Semaphore[]{image_acquired}, new Semaphore[]{render_complete}, null) != VK_SUCCESS) {
                     Log.print(Log.Severity.ERROR, "Vulkan: Failed to submit render queue");
                     throw new IllegalStateException("Failed to submit render queue");
                 }
@@ -210,10 +204,10 @@ public class TriangleDemo {
             }
             image_acquired.close();
             render_complete.close();
-            for(var f:frame_buffers){
+            for (var f : frame_buffers) {
                 f.close();
             }
-            for(var c: command_buffers){
+            for (var c : command_buffers) {
                 c.close();
             }
             commandPool.close();

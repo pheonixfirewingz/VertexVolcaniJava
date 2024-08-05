@@ -189,12 +189,45 @@ public final class CommandBuffer extends LibCleanable {
     /**
      * Sets the viewport state dynamically.
      *
+     * @param width        The width of the viewport.
+     * @param height       The height of the viewport.
+     * @param minDepth     The minimum depth of the viewport.
+     * @param maxDepth     The maximum depth of the viewport.
+     */
+    public void setViewport(int width, int height, float minDepth, float maxDepth) {
+        try(MemoryStack stack = MemoryStack.stackPush()) {
+            VkViewport.Buffer viewport = VkViewport.calloc(1,stack).x(0).y(0).width(width).height(height).minDepth(minDepth).maxDepth(maxDepth);
+            vkCmdSetViewport(handle, 0, viewport);
+        }
+    }
+
+    /**
+     * Sets the viewport state dynamically.
+     *
      * @param firstViewport The index of the first viewport.
      * @param pViewports    A pointer to an array of viewport structures.
      */
-    public void setViewport(@NativeType("uint32_t") int firstViewport, @NativeType("VkViewport const *") VkViewport.Buffer pViewports) {
+    public void setViewports(@NativeType("uint32_t") int firstViewport, @NativeType("VkViewport const *") VkViewport.Buffer pViewports) {
         vkCmdSetViewport(handle, firstViewport, pViewports);
     }
+
+    /**
+     * Sets the scissor state dynamically.
+     *
+     * @param offset_x     The x-coordinate of the scissor rectangle.
+     * @param offset_y     The y-coordinate of the scissor rectangle.
+     * @param width        The width of the scissor rectangle.
+     * @param height       The height of the scissor rectangle.
+     */
+    public void setScissor(int offset_x, int offset_y, int width, int height) {
+        try(MemoryStack stack = MemoryStack.stackPush()) {
+            VkExtent2D extent = VkExtent2D.calloc(stack).width(width).height(height);
+            VkOffset2D offset = VkOffset2D.calloc(stack).x(offset_x).y(offset_y);
+            VkRect2D.Buffer scissor = VkRect2D.calloc(1,stack).extent(extent).offset(offset);
+            vkCmdSetScissor(handle, 0, scissor);
+        }
+    }
+
 
     /**
      * Sets the scissor state dynamically.
@@ -202,7 +235,7 @@ public final class CommandBuffer extends LibCleanable {
      * @param firstScissor The index of the first scissor.
      * @param pScissors    A pointer to an array of scissor structures.
      */
-    public void setScissor(@NativeType("uint32_t") int firstScissor, @NativeType("VkRect2D const *") VkRect2D.Buffer pScissors) {
+    public void setScissors(@NativeType("uint32_t") int firstScissor, @NativeType("VkRect2D const *") VkRect2D.Buffer pScissors) {
         vkCmdSetScissor(handle, firstScissor, pScissors);
     }
 

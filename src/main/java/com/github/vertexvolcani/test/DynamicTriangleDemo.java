@@ -67,13 +67,11 @@ public class DynamicTriangleDemo {
                 op.failOp(VK_STENCIL_OP_KEEP);
                 op.passOp(VK_STENCIL_OP_KEEP);
                 op.compareOp(VK_COMPARE_OP_ALWAYS);
-                builder.setDepthFront(op);
-                builder.setDepthBack(op);
-                builder.setVertexInputAttribute(vertices.attributeDescriptions());
-                IntBuffer formats = stack.callocInt(1);
-                formats.put(0, window.getSurface().getColourFormat()).flip();
-                builder.setDynamicPipelineRenderingState(formats, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED);
-                builder.setVertexInputBinding(vertices.bindingDescriptor());
+                builder.setDepthFront(op)
+                        .setDepthBack(op)
+                        .setVertexInputAttribute(vertices.attributeDescriptions())
+                        .setDynamicPipelineRenderingState(new int[]{ window.getSurface().getColourFormat()}, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED)
+                        .setVertexInputBinding(vertices.bindingDescriptor());
                 IntBuffer pDynamicStates = stack.callocInt(2);
                 pDynamicStates.put(VK_DYNAMIC_STATE_VIEWPORT).put(VK_DYNAMIC_STATE_SCISSOR).flip();
                 builder.setDynamicStates(pDynamicStates);

@@ -118,6 +118,8 @@ public class Pipeline extends LibCleanable {
         private final VkPipelineDepthStencilStateCreateInfo depth_stencil_state = VkPipelineDepthStencilStateCreateInfo.calloc().sType$Default();
         private final VkPipelineMultisampleStateCreateInfo multi_sample_state = VkPipelineMultisampleStateCreateInfo.calloc().sType$Default();
         private final  VkPipelineRenderingCreateInfoKHR rendering_info = VkPipelineRenderingCreateInfoKHR.calloc().sType$Default();
+        @Nullable
+        private IntBuffer colour_formats_buffer = null;
         private final Shader[] shader_stages;
         private final PipelineLayout layout;
         @Nullable
@@ -383,9 +385,15 @@ public class Pipeline extends LibCleanable {
             return this;
         }
 
-        public PipelineBuilder setDynamicPipelineRenderingState(IntBuffer colour_formats, int depth_format, int stencil_format) {
-            rendering_info.colorAttachmentCount(colour_formats.remaining());
-            rendering_info.pColorAttachmentFormats(colour_formats);
+        public PipelineBuilder setDynamicPipelineRenderingState(int[] colour_formats, int depth_format, int stencil_format) {
+            colour_formats_buffer = MemoryUtil.memAllocInt(colour_formats.length);
+            for (int i = 0; i < colour_formats.length; i++) {
+                colour_formats_buffer.put(i, colour_formats[i]);
+            }
+            colour_formats_buffer.flip();
+            colour_formats_buffer.rewind();
+            rendering_info.pColorAttachmentFormats(colour_formats_buffer);
+            rendering_info.colorAttachmentCount(colour_formats.length);
             rendering_info.depthAttachmentFormat(depth_format);
             rendering_info.stencilAttachmentFormat(stencil_format);
             return this;
@@ -487,6 +495,7 @@ public class Pipeline extends LibCleanable {
             depth_stencil_state.free();
             multi_sample_state.free();
             rendering_info.free();
+            MemoryUtil.memFree(colour_formats_buffer);
             MemoryUtil.memFree(entry_name);
             for (var s : shader_stages) {
                 s.free();
